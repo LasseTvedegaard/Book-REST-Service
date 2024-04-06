@@ -64,6 +64,8 @@ namespace Book_REST_Service {
 
             app.UseHttpsRedirection();
 
+            app.UseRouting();
+
             app.UseAuthorization();
 
             app.MapControllers();

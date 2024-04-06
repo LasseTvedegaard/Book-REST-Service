@@ -53,21 +53,16 @@ namespace Book_REST_Service {
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (!app.Environment.IsDevelopment()) {
-                app.UseHttpsRedirection(); // Omdirigerer alle HTTP-anmodninger til HTTPS
+                app.UseHttpsRedirection(); 
             }
 
-
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment()) {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
 
             app.UseSerilogRequestLogging();
-
-            //app.UseHttpsRedirection();
 
             app.UseRouting();
 

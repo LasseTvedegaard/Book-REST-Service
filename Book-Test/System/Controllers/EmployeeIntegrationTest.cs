@@ -18,19 +18,10 @@ namespace Book_Test.System.Controllers {
         private readonly IConfiguration _configuration;
 
         public EmployeeIntegrationTest() {
-            try {
-                _configuration = new ConfigurationBuilder()
-                    .SetBasePath(AppContext.BaseDirectory)
-                    .AddJsonFile("appsettings.Test.Json", optional: false, reloadOnChange: true)
-                    .Build();
-
-                // Rest of the setup code...
-            } catch (FileNotFoundException fnEx) {
-                // Log or handle the exception as necessary, for example:
-                Console.WriteLine($"Could not find the configuration file: {fnEx.Message}");
-                throw; // Re-throwing the exception if you want to stop the execution
-            }
-        
+            _configuration = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.Test.Json", optional: false, reloadOnChange: true)
+                .Build();
 
         var connectionString = _configuration.GetConnectionString("TestDatabaseConnection");
             _dbConnectionTest = new SqlConnection(connectionString);

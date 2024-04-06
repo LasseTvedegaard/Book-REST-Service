@@ -123,7 +123,7 @@ namespace DataAccess {
         public async Task<bool> DeleteAll() {
             using (var conn = new SqlConnection(_connectionString)) {
                 conn.Open();
-                var sql = @"DELETE FROM Employees";
+                var sql = @"DELETE FROM Employee";
                 var rowsAffected = await conn.ExecuteAsync(sql);
                 return rowsAffected > 0;
             }

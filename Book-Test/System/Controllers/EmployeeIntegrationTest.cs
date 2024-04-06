@@ -36,14 +36,15 @@ namespace Book_Test.System.Controllers {
                 .RuleFor(o => o.LastName, f => f.Name.LastName())
                 .RuleFor(o => o.BirthDate, f => f.Date.Past(100))
                 .RuleFor(o => o.Address, f => f.Address.FullAddress())
-                .RuleFor(o => o.Phone, f => f.Phone.PhoneNumberFormat(0)) 
-                .RuleFor(o => o.Email, f => f.Internet.Email());
+                .RuleFor(o => o.Phone, f => f.Phone.PhoneNumberFormat(0))
+                .RuleFor(o => o.Email, f => $"{f.Internet.UserName()}@test.com"); // Ensure emails end with "@test.com"
 
             for (int i = 0; i < 2; i++) {
                 var newEmployee = faker.Generate();
                 await _employeeAccess.Create(newEmployee);
             }
         }
+
 
         private async Task TeardownAsync() {
             var employees = await _employeeAccess.GetAll();

@@ -60,6 +60,8 @@ namespace Book_REST_Service {
                 app.UseSwaggerUI();
             }
 
+            app.UseSerilogRequestLogging();
+
             app.UseHttpsRedirection();
 
             app.UseAuthorization();

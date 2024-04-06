@@ -86,5 +86,8 @@ namespace DataAccess {
             return rowsAffected > 0;
         }
 
+        public Task<bool> DeleteAll() {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -63,9 +63,25 @@ namespace DataAccess {
             return rowsAffected > 0;
         }
 
-        public Task<Employee> Get(int id) {
-            throw new NotImplementedException();
+        public async Task<Employee> Get(int id) {
+            using (var con = new SqlConnection(_connectionString)) {
+                con.Open();
+                var sql = @"SELECT employeeId, FirstName, LastName, Address, BirthDate, Phone, Email
+                    FROM Employee
+                    WHERE employeeId = @Id";
+                try {
+                    var result = await con.QuerySingleOrDefaultAsync<Employee>(sql, new { Id = id });
+                    if (result == null) {
+                        _logger?.LogInformation($"Employee with id {id} was not found.");
+                    }
+                    return result;
+                } catch (Exception ex) {
+                    _logger?.LogError(ex, "An error occurred when trying to retrieve employee with id {Id}.", id);
+                    throw;
+                }
+            }
         }
+
 
         public async Task<List<Employee>> GetAll() {
             List<Employee>? foundEmployee;
@@ -101,6 +117,16 @@ namespace DataAccess {
                 rowsAffected = await con.ExecuteAsync(sql, employeeToUpdate);
             }
             return rowsAffected > 0;
+        }
+
+        // For test tear down
+        public async Task<bool> DeleteAll() {
+            using (var conn = new SqlConnection(_connectionString)) {
+                conn.Open();
+                var sql = @"DELETE FROM Employees";
+                var rowsAffected = await conn.ExecuteAsync(sql);
+                return rowsAffected > 0;
+            }
         }
     }
 }

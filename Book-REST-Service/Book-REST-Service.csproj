@@ -25,7 +25,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Log\" />
     <Folder Include="wwwroot\Uploads\BookImages\" />
     <Folder Include="wwwroot\Uploads\BookImages\" />
   </ItemGroup>

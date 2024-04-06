@@ -39,25 +39,17 @@ namespace Book_REST_Service {
             builder.Services.AddTransient<ILogControl, LogControl>();
             builder.Services.AddTransient<ILogAccess, LogAccess>();
 
-            // SeriLog
-            var _logger = new LoggerConfiguration()
-                .MinimumLevel.Information()
-                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
-                .WriteTo.File(
-                   new CompactJsonFormatter(),
-                   "Log/APILog-.log",
-                   rollingInterval: RollingInterval.Day
-                ).WriteTo.Console(outputTemplate:
-                    "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} -//- {Exception}")
-                .CreateLogger();
-
-            builder.Logging.AddSerilog(_logger);
-
-
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            // SeriLog
+            builder.Host.UseSerilog((context, configuration) =>
+                configuration.ReadFrom.Configuration(context.Configuration));
+
+            var provider = builder.Services.BuildServiceProvider();
+            var configuration = provider.GetService<IConfiguration>();
 
             var app = builder.Build();
 

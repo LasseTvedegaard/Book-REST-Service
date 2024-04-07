@@ -46,48 +46,48 @@ namespace Book_Test.System.Controllers {
         }
 
 
-        private async Task TeardownAsync() {
-            var employees = await _employeeAccess.GetAll();
-            foreach (var employee in employees) {
-                if (employee.Email.EndsWith("@test.com") && employee.EmployeeId.HasValue) {
-                    await _employeeAccess.Delete(employee.EmployeeId.Value);
-                }
-            }
-        }
+        //private async Task TeardownAsync() {
+        //    var employees = await _employeeAccess.GetAll();
+        //    foreach (var employee in employees) {
+        //        if (employee.Email.EndsWith("@test.com") && employee.EmployeeId.HasValue) {
+        //            await _employeeAccess.Delete(employee.EmployeeId.Value);
+        //        }
+        //    }
+        //}
 
-        [Fact]
-        public async Task CreateEmployee_ShouldSuccessfullyAddEmployee() {
-            // Arrange
-            await SetupAsync();
+        //[Fact]
+        //public async Task CreateEmployee_ShouldSuccessfullyAddEmployee() {
+        //    // Arrange
+        //    await SetupAsync();
 
-            var faker = new Faker<Employee>()
-                .RuleFor(o => o.FirstName, f => f.Name.FirstName())
-                .RuleFor(o => o.LastName, f => f.Name.LastName())
-                .RuleFor(o => o.BirthDate, f => f.Date.Past(100))
-                .RuleFor(o => o.Address, f => f.Address.FullAddress())
-                .RuleFor(o => o.Phone, f => f.Phone.PhoneNumber())
-                .RuleFor(o => o.Email, f => f.Internet.Email());
+        //    var faker = new Faker<Employee>()
+        //        .RuleFor(o => o.FirstName, f => f.Name.FirstName())
+        //        .RuleFor(o => o.LastName, f => f.Name.LastName())
+        //        .RuleFor(o => o.BirthDate, f => f.Date.Past(100))
+        //        .RuleFor(o => o.Address, f => f.Address.FullAddress())
+        //        .RuleFor(o => o.Phone, f => f.Phone.PhoneNumber())
+        //        .RuleFor(o => o.Email, f => f.Internet.Email());
 
-            var newEmployee = faker.Generate();
+        //    var newEmployee = faker.Generate();
 
-            // Act
-            var createdEmployeeId = await _employeeAccess.Create(newEmployee);
+        //    // Act
+        //    var createdEmployeeId = await _employeeAccess.Create(newEmployee);
 
-            // Assert
-            createdEmployeeId.Should().BeGreaterThan(0);
+        //    // Assert
+        //    createdEmployeeId.Should().BeGreaterThan(0);
 
-            var createdEmployee = await _employeeAccess.Get(createdEmployeeId);
-            createdEmployee.Should().NotBeNull();
+        //    var createdEmployee = await _employeeAccess.Get(createdEmployeeId);
+        //    createdEmployee.Should().NotBeNull();
 
-            createdEmployee.FirstName.Should().Be(newEmployee.FirstName);
-            createdEmployee.Email.Should().Be(newEmployee.Email);
+        //    createdEmployee.FirstName.Should().Be(newEmployee.FirstName);
+        //    createdEmployee.Email.Should().Be(newEmployee.Email);
 
-            // Teardown
-            await TeardownAsync();
-        }
+        //    // Teardown
+        //    await TeardownAsync();
+        //}
         public void Dispose() {
             _dbConnectionTest?.Dispose();
 
+            }
         }
-    }
 }

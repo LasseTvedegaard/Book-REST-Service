@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using DataAccess.Context;
 using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -9,11 +10,11 @@ using System.Data.SqlClient;
 namespace DataAccess {
     public class EmployeeAccess : ICRUDAccess<Employee> {
 
-        private readonly string? _connectionString;
+        private IConnection _connectionString;
         private readonly ILogger<ICRUDAccess<Employee>>? _logger;
 
-        public EmployeeAccess(IConfiguration configuration, ILogger<ICRUDAccess<Employee>> logger = null) {
-            _connectionString = configuration.GetConnectionString("DbAccessConnection");
+        public EmployeeAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<ICRUDAccess<Employee>> logger = null) {
+            _connectionString = _mssqlConnection;
             _logger = logger;
         }
 
@@ -22,33 +23,7 @@ namespace DataAccess {
             _connectionString = connectionStringTest;
         }
         public async Task<int> Create(Employee entity) {
-            int insertedEmployeeId = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"INSERT INTO Employee
-                            (firstname,
-                            lastname,
-                            address,
-                            birthdate,
-                            phone,
-                            email)
-                            OUTPUT INSERTED.employeeId
-                            VALUES
-                            (@firstname,
-                            @lastname,
-                            @address,
-                            @birthdate,
-                            @phone,
-                            @email)";
-                try {
-                    insertedEmployeeId = await con.ExecuteScalarAsync<int>(sql, entity);
-                } catch (Exception ex) {
-                    insertedEmployeeId = -1;
-                    _logger?.LogError(ex.Message);
-                    throw;
-                }
-            }
-            return insertedEmployeeId;
+            using var db = _connectionString.GetConnection();
         }
 
         public async Task<bool> Delete(int id) {

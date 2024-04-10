@@ -63,22 +63,22 @@ namespace DataAccess {
             return rowsAffected > 0;
         }
 
-    public async Task<Employee> Get(int id) {
+        public async Task<Employee> Get(int id) {
             using var db = _connectionString.GetConnection();
-                var sql = @"SELECT employeeId, FirstName, LastName, Address, BirthDate, Phone, Email
+            var sql = @"SELECT employeeId, FirstName, LastName, Address, BirthDate, Phone, Email
                             FROM Employee
                             WHERE employeeId = @Id";
-                try {
-                    var result = await db.QuerySingleOrDefaultAsync<Employee>(sql, new { Id = id });
-                    if (result == null) {
-                        _logger?.LogInformation($"Employee with id {id} was not found.");
-                    }
-                    return result;
-                } catch (Exception ex) {
-                    _logger?.LogError(ex, "An error occurred when trying to retrieve employee with id {Id}.", id);
-                    throw;
+            try {
+                var result = await db.QuerySingleOrDefaultAsync<Employee>(sql, new { Id = id });
+                if (result == null) {
+                    _logger?.LogInformation($"Employee with id {id} was not found.");
                 }
+                return result;
+            } catch (Exception ex) {
+                _logger?.LogError(ex, "An error occurred when trying to retrieve employee with id {Id}.", id);
+                throw;
             }
+        }
 
 
         public async Task<List<Employee>> GetAll() {
@@ -101,7 +101,7 @@ namespace DataAccess {
         public async Task<bool> Update(int EmployeeId, Employee employeeToUpdate) {
             int rowsAffected = -1;
             using var db = _connectionString.GetConnection();
-                var sql = @"UPDATE employee
+            var sql = @"UPDATE employee
                                     SET
                                         firstname = @firstname,
                                         lastname = @lastname,
@@ -111,18 +111,17 @@ namespace DataAccess {
                                         email = @email
                                     WHERE
                                         employeeId = @employeeId";
-                rowsAffected = await db.ExecuteAsync(sql, employeeToUpdate);
+            rowsAffected = await db.ExecuteAsync(sql, employeeToUpdate);
             return rowsAffected > 0;
         }
 
-        //        // For test tear down
-        //        public async Task<bool> DeleteAll() {
-        //            using (var conn = new SqlConnection(_connectionString)) {
-        //                conn.Open();
-        //                var sql = @"DELETE FROM Employee";
-        //                var rowsAffected = await conn.ExecuteAsync(sql);
-        //                return rowsAffected > 0;
-        //            }
-        //        }
+        // For test tear down
+        public async Task<bool> DeleteAll() {
+            using var db = _connectionString.GetConnection();
+            var sql = @"DELETE FROM Employee";
+            var rowsAffected = await db.ExecuteAsync(sql);
+            return rowsAffected > 0;
+        }
     }
 }
+

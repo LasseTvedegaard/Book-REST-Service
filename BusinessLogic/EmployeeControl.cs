@@ -27,7 +27,6 @@ namespace BusinessLogic {
             return foundEmployees;
         }
 
-
         public Task<Employee> GetValue(int id) {
             throw new NotImplementedException();
         }

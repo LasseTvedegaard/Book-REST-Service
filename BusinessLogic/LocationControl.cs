@@ -15,11 +15,11 @@ namespace BusinessLogic {
             return insertedId;
         }
 
-        //public async Task<bool> Delete(int id) {
-        //    bool isDeleted;
-        //    isDeleted = await _locationAccess.Delete(id);
-        //    return isDeleted;
-        //}
+        public async Task<bool> Delete(int id) {
+            bool isDeleted;
+            isDeleted = await _locationAccess.Delete(id);
+            return isDeleted;
+        }
 
         public async Task<List<Location>> GetAll() {
             List<Location> foundLocation;
@@ -27,14 +27,14 @@ namespace BusinessLogic {
             return foundLocation;
         }
 
-        //public Task<Location> GetValue(int id) {
-        //    throw new NotImplementedException();
-        //}
+        public Task<Location> GetValue(int id) {
+            throw new NotImplementedException();
+        }
 
-        //public async Task<bool> Update(int id, Location entity) {
-        //    bool isUpdated;
-        //    isUpdated = await _locationAccess.Update(id, entity);
-        //    return isUpdated;
-        //}
+        public async Task<bool> Update(int id, Location entity) {
+            bool isUpdated;
+            isUpdated = await _locationAccess.Update(id, entity);
+            return isUpdated;
+        }
     }
 }

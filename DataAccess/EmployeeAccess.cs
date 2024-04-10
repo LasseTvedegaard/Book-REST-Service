@@ -26,7 +26,7 @@ namespace DataAccess {
         public async Task<int> Create(Employee entity) {
             int insertedEmployeeId = -1;
             try {
-                using var db = _connectionString.GetConnection(); 
+                using var db = _connectionString.GetConnection();
                 var sql = @"INSERT INTO Employee
                         (firstname,
                         lastname,
@@ -45,7 +45,7 @@ namespace DataAccess {
                 insertedEmployeeId = await db.ExecuteScalarAsync<int>(sql, entity);
             } catch (Exception ex) {
                 _logger?.LogError(ex.Message);
-                throw; 
+                throw;
             }
 
             return insertedEmployeeId;
@@ -53,36 +53,32 @@ namespace DataAccess {
 
 
 
-        //public async Task<bool> Delete(int id) {
-        //            int rowsAffected = -1;
-        //            using (SqlConnection con = new SqlConnection(_connectionString)) {
-        //                con.Open();
-        //                var sql = @"DELETE FROM employee 
-        //                            WHERE
-        //                            employeeId = @id";
-        //                rowsAffected = await con.ExecuteAsync(sql, new { id });
-        //            }
-        //            return rowsAffected > 0;
-        //        }
+        public async Task<bool> Delete(int id) {
+            int rowsAffected = -1;
+            using var db = _connectionString.GetConnection();
+            var sql = @"DELETE FROM employee 
+                                    WHERE
+                                    employeeId = @id";
+            rowsAffected = await db.ExecuteAsync(sql, new { id });
+            return rowsAffected > 0;
+        }
 
-        //        public async Task<Employee> Get(int id) {
-        //            using (var con = new SqlConnection(_connectionString)) {
-        //                con.Open();
-        //                var sql = @"SELECT employeeId, FirstName, LastName, Address, BirthDate, Phone, Email
-        //                    FROM Employee
-        //                    WHERE employeeId = @Id";
-        //                try {
-        //                    var result = await con.QuerySingleOrDefaultAsync<Employee>(sql, new { Id = id });
-        //                    if (result == null) {
-        //                        _logger?.LogInformation($"Employee with id {id} was not found.");
-        //                    }
-        //                    return result;
-        //                } catch (Exception ex) {
-        //                    _logger?.LogError(ex, "An error occurred when trying to retrieve employee with id {Id}.", id);
-        //                    throw;
-        //                }
-        //            }
-        //        }
+    public async Task<Employee> Get(int id) {
+            using var db = _connectionString.GetConnection();
+                var sql = @"SELECT employeeId, FirstName, LastName, Address, BirthDate, Phone, Email
+                            FROM Employee
+                            WHERE employeeId = @Id";
+                try {
+                    var result = await db.QuerySingleOrDefaultAsync<Employee>(sql, new { Id = id });
+                    if (result == null) {
+                        _logger?.LogInformation($"Employee with id {id} was not found.");
+                    }
+                    return result;
+                } catch (Exception ex) {
+                    _logger?.LogError(ex, "An error occurred when trying to retrieve employee with id {Id}.", id);
+                    throw;
+                }
+            }
 
 
         public async Task<List<Employee>> GetAll() {
@@ -102,24 +98,22 @@ namespace DataAccess {
         }
 
 
-        //        public async Task<bool> Update(int EmployeeId, Employee employeeToUpdate) {
-        //            int rowsAffected = -1;
-        //            using (SqlConnection con = new SqlConnection(_connectionString)) {
-        //                con.Open();
-        //                var sql = @"UPDATE employee
-        //                            SET
-        //                                firstname = @firstname,
-        //                                lastname = @lastname,
-        //                                address = @address,
-        //                                birthdate = @birthdate,
-        //                                phone = @phone,
-        //                                email = @email
-        //                            WHERE
-        //                                employeeId = @employeeId";
-        //                rowsAffected = await con.ExecuteAsync(sql, employeeToUpdate);
-        //            }
-        //            return rowsAffected > 0;
-        //        }
+        public async Task<bool> Update(int EmployeeId, Employee employeeToUpdate) {
+            int rowsAffected = -1;
+            using var db = _connectionString.GetConnection();
+                var sql = @"UPDATE employee
+                                    SET
+                                        firstname = @firstname,
+                                        lastname = @lastname,
+                                        address = @address,
+                                        birthdate = @birthdate,
+                                        phone = @phone,
+                                        email = @email
+                                    WHERE
+                                        employeeId = @employeeId";
+                rowsAffected = await db.ExecuteAsync(sql, employeeToUpdate);
+            return rowsAffected > 0;
+        }
 
         //        // For test tear down
         //        public async Task<bool> DeleteAll() {

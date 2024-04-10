@@ -45,36 +45,36 @@ namespace Book_REST_Service.Controllers {
             return foundResult;
         }
 
-        //// PUT api/<EmployeeController>/5
-        //[HttpPut("{employeeId}")]
-        //public async Task<IActionResult> UpdateEmployee(int employeeId, [FromBody] Employee employeeToUpdate) {
-        //    IActionResult foundResult;
+        // PUT api/<EmployeeController>/5
+        [HttpPut("{employeeId}")]
+        public async Task<IActionResult> UpdateEmployee(int employeeId, [FromBody] Employee employeeToUpdate) {
+            IActionResult foundResult;
 
-        //    bool isUpdated = await _employeeControl.Update(employeeId, employeeToUpdate);
-        //    if (isUpdated) {
-        //        foundResult = Ok();
-        //    } else {
-        //        foundResult = StatusCode(500);
-        //    }
-        //    return foundResult;
-        //}
+            bool isUpdated = await _employeeControl.Update(employeeId, employeeToUpdate);
+            if (isUpdated) {
+                foundResult = Ok();
+            } else {
+                foundResult = StatusCode(500);
+            }
+            return foundResult;
+        }
 
-        //// DELETE api/<EmployeeController>/5
-        //[HttpDelete("{id}")]
-        //public async Task<IActionResult> DeleteEmployee(int id) {
-        //    IActionResult result;
+        // DELETE api/<EmployeeController>/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteEmployee(int id) {
+            IActionResult result;
 
-        //    if (id > 0) {
-        //        bool isDeleted = await _employeeControl.Delete(id);
-        //        if (isDeleted) {
-        //            result = NoContent();
-        //        } else {
-        //            result = StatusCode(500);
-        //        }
-        //    } else {
-        //        result = BadRequest();
-        //    }
-        //    return result;
-        //}
+            if (id > 0) {
+                bool isDeleted = await _employeeControl.Delete(id);
+                if (isDeleted) {
+                    result = NoContent();
+                } else {
+                    result = StatusCode(500);
+                }
+            } else {
+                result = BadRequest();
+            }
+            return result;
+        }
     }
 }

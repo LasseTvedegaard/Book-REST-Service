@@ -15,11 +15,11 @@ namespace BusinessLogic {
             return insertedId;
         }
 
-        //public async Task<bool> Delete(int id) {
-        //    bool isDeleted;
-        //    isDeleted = await _employeeAccess.Delete(id);
-        //    return isDeleted;
-        //}
+        public async Task<bool> Delete(int id) {
+            bool isDeleted;
+            isDeleted = await _employeeAccess.Delete(id);
+            return isDeleted;
+        }
 
         public async Task<List<Employee>> GetAll() {
             List<Employee> foundEmployees;
@@ -28,14 +28,14 @@ namespace BusinessLogic {
         }
 
 
-        //public Task<Employee> GetValue(int id) {
-        //    throw new NotImplementedException();
-        //}
+        public Task<Employee> GetValue(int id) {
+            throw new NotImplementedException();
+        }
 
-        //public async Task<bool> Update(int EmployeeId, Employee employeeToUpdate) {
-        //    bool isUpdated;
-        //    isUpdated = await _employeeAccess.Update(EmployeeId, employeeToUpdate);
-        //    return isUpdated;
-        //}
+        public async Task<bool> Update(int EmployeeId, Employee employeeToUpdate) {
+            bool isUpdated;
+            isUpdated = await _employeeAccess.Update(EmployeeId, employeeToUpdate);
+            return isUpdated;
+        }
     }
 }

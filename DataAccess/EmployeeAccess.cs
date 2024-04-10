@@ -90,7 +90,7 @@ namespace DataAccess {
             try {
                 foundEmployees = (await db.QueryAsync<Employee>(sql)).ToList();
             } catch (Exception ex) {
-                foundEmployees = null; // Consider if you want to return null or an empty list in case of an exception
+                foundEmployees = null; 
                 _logger?.LogError(ex, "An error occurred while fetching all employees.");
             }
 

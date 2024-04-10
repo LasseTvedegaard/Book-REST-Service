@@ -6,8 +6,6 @@
         Task<List<T>> GetAll();
         Task<bool> Update(int id, T entity);
         Task<bool> Delete(int id);
-
-        //For test tear down
-        Task<bool> DeleteAll();
+        Task<bool> DeleteAll(); //For test tear down
     }
 }

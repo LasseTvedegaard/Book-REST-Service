@@ -53,18 +53,12 @@ namespace Book_REST_Service {
 
             // Database connection service
             builder.Services.AddTransient(provider => new LibraryConnection(connectionString));
-            // Get the connection string from configuration
-            //var connectionString = ConnectionStringHelper.GetConnectionString(configuration);
 
             // Register LibraryConnection
             builder.Services.AddTransient<LibraryConnection>(provider => new LibraryConnection(connectionString));
 
             // Register the generic connection with LibraryConnection as the type parameter
             builder.Services.AddTransient(typeof(IGenericConnection<LibraryConnection>), typeof(GenericConnection<LibraryConnection>));
-
-            // Register other services...
-
-
 
             // MVC Controllers
             builder.Services.AddControllers();

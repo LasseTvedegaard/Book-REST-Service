@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using DataAccess.Context;
 using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -9,23 +10,22 @@ using static Dapper.SqlMapper;
 namespace DataAccess {
     public class UserAccess : IUserAccess {
 
-        private readonly string? _connectionString;
+        private IConnection _connectionString;
         private readonly ILogger<UserAccess>? _logger;
 
-        public UserAccess(IConfiguration configuration, ILogger<UserAccess>? logger = null) {
-            _connectionString = configuration.GetConnectionString("DbAccessConnection");
+        public UserAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<UserAccess>? logger = null) {
+            _connectionString = _mssqlConnection;
             _logger = logger;
         }
 
         public UserAccess(string connectionString) {
-            _connectionString = connectionString;
+            //_connectionString = connectionString;
         }
 
         public async Task<bool> Create(User entity) {
             bool userInserted = false;
-            using (SqlConnection conn = new SqlConnection(_connectionString)) {
-                await conn.OpenAsync();
-                var sql = @"
+            using var db = _connectionString.GetConnection();
+            var sql = @"
                             INSERT INTO [User] (
                                 userId,
                                 firstName,
@@ -49,18 +49,16 @@ namespace DataAccess {
                                 @city
                             )";
 
-                try {
-                    var rowsAffected = conn.Execute(sql, entity);
-                    if (rowsAffected > 0) {
-                        userInserted = true;
-                        _logger?.LogInformation($"A user is created with userId {entity.UserId}");
+            try {
+                var rowsAffected = await db.ExecuteAsync(sql, entity);
+                if (rowsAffected > 0) {
+                    userInserted = true;
+                    _logger?.LogInformation($"A user is created with userId {entity.UserId}");
 
-                    }
-                } catch (Exception ex) {
-                    userInserted = false;
-                    _logger?.LogError(ex.Message + "// Create user failed");
                 }
-
+            } catch (Exception ex) {
+                userInserted = false;
+                _logger?.LogError(ex.Message + "// Create user failed");
             }
             return userInserted;
         }
@@ -83,17 +81,16 @@ namespace DataAccess {
                         WHERE
                             userId = @userId";
 
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                await con.OpenAsync();
+            using var db = _connectionString.GetConnection();
 
-                try {
-                    foundUser = con.Query<User>(sql, new { userId = id }).FirstOrDefault();
-                    if (foundUser != null) {
-                        _logger?.LogInformation($"A user was found with userId {foundUser.UserId}");
-                    }
-                } catch (Exception ex) {
-                    _logger?.LogError(ex.Message + "// Get a user failed");
+            try {
+                var userEnumerable = await db.QueryAsync<User>(sql, new { userId = id });
+                foundUser = userEnumerable.FirstOrDefault();
+                if (foundUser != null) {
+                    _logger?.LogInformation($"A user was found with userId {foundUser.UserId}");
                 }
+            } catch (Exception ex) {
+                _logger?.LogError(ex.Message + "// Get a user failed");
             }
             return foundUser;
         }
@@ -115,11 +112,10 @@ namespace DataAccess {
                             userId = @userId";
 
             try {
-                using (SqlConnection con = new SqlConnection(_connectionString)) {
-                    await con.OpenAsync();
+                using var db = _connectionString.GetConnection();
 
-                    rowsAffected = con.Execute(sql, entity);
-                }
+                rowsAffected = await db.ExecuteAsync(sql, entity);
+
 
                 if (rowsAffected > 0) {
                     _logger?.LogInformation($"User {entity.UserId} was updated");
@@ -132,7 +128,7 @@ namespace DataAccess {
                 throw;
             }
 
-           return rowsAffected > 0;
+            return rowsAffected > 0;
         }
     }
 }

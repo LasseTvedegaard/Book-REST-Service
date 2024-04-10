@@ -1,4 +1,5 @@
 ﻿using Dapper;
+using DataAccess.Context;
 using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -9,16 +10,20 @@ using System.Data.SqlClient;
 namespace DataAccess {
     public class LogAccess : ILogAccess {
 
-        private readonly string? _connectionString;
+        private IConnection _connectionString;
         private readonly ILogger<LogAccess> _logger;
         private IBookAccess _bookAccess;
         private IUserAccess _userAccess;
 
-        public LogAccess(IConfiguration configuration, IBookAccess bookAccess, IUserAccess userAccess, ILogger<LogAccess> logger = null) {
-            _connectionString = configuration.GetConnectionString("DbAccessConnection");
+        public LogAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, IBookAccess bookAccess, IUserAccess userAccess, ILogger<LogAccess> logger = null) {
+            _connectionString = _mssqlConnection;
             _logger = logger;
             _bookAccess = bookAccess;
             _userAccess = userAccess;
+        }
+
+        public LogAccess(string connectionString) {
+            //_connectionString = connectionString;
         }
 
         public async Task<int> Create(Log entity, string listType) {
@@ -39,16 +44,14 @@ namespace DataAccess {
                 SELECT CAST(SCOPE_IDENTITY() AS INT);"; // Retrieve the inserted ID
 
             try {
-                using (IDbConnection conn = new SqlConnection(_connectionString)) {
-                    conn.Open();
-                    statusCodeOrId = await conn.ExecuteScalarAsync<int>(sql, new {
-                        entity.BookId,
-                        entity.UserId,
-                        entity.CurrentPage,
-                        entity.NoOfPages,
-                        listType
-                    });
-                }
+                using var db = _connectionString.GetConnection();
+                statusCodeOrId = await db.ExecuteScalarAsync<int>(sql, new {
+                    entity.BookId,
+                    entity.UserId,
+                    entity.CurrentPage,
+                    entity.NoOfPages,
+                    listType
+                });
 
                 if (statusCodeOrId == 0) {
                     _logger?.LogError("No ID returned after insert");
@@ -58,7 +61,6 @@ namespace DataAccess {
                 _logger?.LogError(ex.Message);
                 statusCodeOrId = 500;
             }
-
             return statusCodeOrId;
         }
 
@@ -68,9 +70,8 @@ namespace DataAccess {
         }
 
         public async Task<Log> GetLogById(int logId, string listType) {
-            using (SqlConnection conn = new SqlConnection(_connectionString)) {
-                conn.Open();
-                var sql = @"
+            using var db = _connectionString.GetConnection();
+            var sql = @"
             SELECT
                 Log.logId,
                 Log.currentPage,
@@ -84,26 +85,26 @@ namespace DataAccess {
             WHERE Log.logId = @logId
                 AND Log.listType = @listType";
 
-                var result = await conn.QueryAsync<Log, Book, User, Log>(
-                    sql,
-                    (log, book, user) => {
-                        log.Book = book;
-                        log.User = user;
-                        return log;
-                    },
-                    new { logId, listType },
-                    splitOn: "bookId, userId"
-                );
+            var result = await db.QueryAsync<Log, Book, User, Log>(
+                sql,
+                (log, book, user) => {
+                    log.Book = book;
+                    log.User = user;
+                    return log;
+                },
+                new { logId, listType },
+                splitOn: "bookId, userId"
+            );
 
-                var foundLog = result.FirstOrDefault();
+            var foundLog = result.FirstOrDefault();
 
-                if (foundLog != null) {
-                    foundLog.Book = await _bookAccess.Get(foundLog.Book.BookId);
-                }
-
-                return foundLog;
+            if (foundLog != null) {
+                foundLog.Book = await _bookAccess.Get(foundLog.Book.BookId);
             }
+
+            return foundLog;
         }
+
 
         Task<List<Log>> ILogAccess.GetLogsByUserId(string userId) {
             throw new NotImplementedException();
@@ -123,26 +124,24 @@ namespace DataAccess {
         WHERE
             logId = @LogId";
 
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                await con.OpenAsync();
+            using var db = _connectionString.GetConnection();
 
-                try {
-                    rowsAffected = await con.ExecuteAsync(sql, updatedLog);
+            try {
+                rowsAffected = await db.ExecuteAsync(sql, updatedLog);
 
-                    if (rowsAffected > 0) {
-                        _logger?.LogInformation($"Log {logId} updated successfully");
-                        return 0; // Set returnCode to 0 for success
-                    } else {
-                        _logger?.LogWarning($"Log {logId} was not updated");
-                        return -1; // Set returnCode to -1 for not found
-                    }
-                } catch (Exception ex) {
-                    _logger?.LogError($"Error updating log {logId}: {ex.Message}");
-                    return -500; // Set returnCode to -500 for other errors
+                if (rowsAffected > 0) {
+                    _logger?.LogInformation($"Log {logId} updated successfully");
+                    return 0; // Set returnCode to 0 for success
+                } else {
+                    _logger?.LogWarning($"Log {logId} was not updated");
+                    return -1; // Set returnCode to -1 for not found
                 }
+            } catch (Exception ex) {
+                _logger?.LogError($"Error updating log {logId}: {ex.Message}");
+                return -500; // Set returnCode to -500 for other errors
             }
-
         }
 
     }
+
 }

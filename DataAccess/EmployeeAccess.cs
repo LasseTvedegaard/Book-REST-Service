@@ -20,7 +20,6 @@ namespace DataAccess {
         }
 
         // Test
-        //testeststes
         public EmployeeAccess(string connectionStringTest) {
             //_connectionString = connectionStringTest;
         }

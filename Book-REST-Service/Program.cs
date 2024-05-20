@@ -67,17 +67,33 @@ namespace Book_REST_Service {
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            var provider = builder.Services.BuildServiceProvider();
+            //var configuration = provider.GetService<IConfiguration>();
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("DefaultPolicy", policy =>
+                {
+                    policy.WithOrigins(configuration.GetValue<string>("frontend_url"))
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials(); // Include this only if your application needs to handle credentials like cookies or authentication headers
+                });
+            });
             // Build the application
             var app = builder.Build();
 
             // Configure the HTTP request pipeline
 
             if (app.Environment.IsDevelopment()) {
+                app.UseDeveloperExceptionPage();
                 app.UseSwagger();
                 app.UseSwaggerUI();
             } else {
                 app.UseHttpsRedirection();
             }
+
+            app.UseCors("DefaultPolicy");
 
             app.UseSerilogRequestLogging(); // Enable Serilog request logging
 

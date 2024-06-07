@@ -1,5 +1,4 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.33627.172
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -10,8 +9,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BusinessLogic", "BusinessLogic\BusinessLogic.csproj", "{2DF68308-BAA6-44BA-A03B-94F482108288}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataAccess", "DataAccess\DataAccess.csproj", "{7AB57D9A-B9D4-4228-9B89-12A1EA90B199}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Book-Test", "Book-Test\Book-Test.csproj", "{B571E3DC-D831-48D2-82A0-038DB55094D3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DTOs", "DTOs\DTOs.csproj", "{268EB51E-B4D2-4C6C-98A8-FBE84D43444B}"
 EndProject
@@ -42,10 +39,6 @@ Global
 		{7AB57D9A-B9D4-4228-9B89-12A1EA90B199}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7AB57D9A-B9D4-4228-9B89-12A1EA90B199}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7AB57D9A-B9D4-4228-9B89-12A1EA90B199}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B571E3DC-D831-48D2-82A0-038DB55094D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B571E3DC-D831-48D2-82A0-038DB55094D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B571E3DC-D831-48D2-82A0-038DB55094D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B571E3DC-D831-48D2-82A0-038DB55094D3}.Release|Any CPU.Build.0 = Release|Any CPU
 		{268EB51E-B4D2-4C6C-98A8-FBE84D43444B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{268EB51E-B4D2-4C6C-98A8-FBE84D43444B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{268EB51E-B4D2-4C6C-98A8-FBE84D43444B}.Release|Any CPU.ActiveCfg = Release|Any CPU

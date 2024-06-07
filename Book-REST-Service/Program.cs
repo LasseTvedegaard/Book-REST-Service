@@ -8,10 +8,14 @@ using Model;
 using Serilog;
 using Microsoft.Extensions.DependencyInjection;
 using DataAccess.Context;
+using DotNetEnv;
 
 namespace Book_REST_Service {
     public class Program {
         public static void Main(string[] args) {
+            // Load environment variables from .env file
+            Env.Load();
+
             var builder = WebApplication.CreateBuilder(args);
 
             // Configure Serilog using the configuration from the builder's context
@@ -63,6 +67,16 @@ namespace Book_REST_Service {
             // MVC Controllers
             builder.Services.AddControllers();
 
+            // CORS
+            builder.Services.AddCors(options => {
+                options.AddPolicy("AllowAllOrigins",
+                    policy => {
+                        policy.AllowAnyOrigin()
+                              .AllowAnyMethod()
+                              .AllowAnyHeader();
+                    });
+            });
+
             // Swagger
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -71,7 +85,6 @@ namespace Book_REST_Service {
             var app = builder.Build();
 
             // Configure the HTTP request pipeline
-
             if (app.Environment.IsDevelopment()) {
                 app.UseSwagger();
                 app.UseSwaggerUI();
@@ -83,9 +96,14 @@ namespace Book_REST_Service {
 
             app.UseRouting();
 
+            app.UseCors("AllowAllOrigins");
+
             app.UseAuthorization();
 
             app.MapControllers();
+
+            // Define a default route
+            //app.MapGet("/", () => "Welcome to Book REST Service!");
 
             app.Run();
         }

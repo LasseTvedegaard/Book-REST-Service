@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Model;
 using BusinessLogic.Interfaces;
+using DTOs; 
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -23,7 +24,7 @@ namespace Book_REST_Service.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest loginRequest)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto loginRequest)
         {
             if (string.IsNullOrWhiteSpace(loginRequest.Email))
                 return BadRequest("Email is required");
@@ -58,11 +59,6 @@ namespace Book_REST_Service.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        public class LoginRequest
-        {
-            public string Email { get; set; }
         }
     }
 }

@@ -9,10 +9,17 @@ using Serilog;
 using Microsoft.Extensions.DependencyInjection;
 using DataAccess.Context;
 using DotNetEnv;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
-namespace Book_REST_Service {
-    public class Program {
-        public static void Main(string[] args) {
+
+namespace Book_REST_Service
+{
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
             // Load environment variables from .env file
             Env.Load();
 
@@ -81,29 +88,40 @@ namespace Book_REST_Service {
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            // JWT Authentication
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options => {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = configuration["Jwt:Issuer"],
+                        ValidAudience = configuration["Jwt:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
+                    };
+                });
+
             // Build the application
             var app = builder.Build();
 
             // Configure the HTTP request pipeline
-            if (app.Environment.IsDevelopment()) {
+            if (app.Environment.IsDevelopment())
+            {
                 app.UseSwagger();
                 app.UseSwaggerUI();
-            } else {
-                app.UseHttpsRedirection();
             }
 
-            app.UseSerilogRequestLogging(); // Enable Serilog request logging
-
+            app.UseHttpsRedirection();
+            app.UseSerilogRequestLogging();
             app.UseRouting();
-
             app.UseCors("AllowAllOrigins");
 
+            app.UseAuthentication(); // <- VIGTIGT! Skal være før authorization
             app.UseAuthorization();
 
             app.MapControllers();
-
-            // Define a default route
-            //app.MapGet("/", () => "Welcome to Book REST Service!");
 
             app.Run();
         }

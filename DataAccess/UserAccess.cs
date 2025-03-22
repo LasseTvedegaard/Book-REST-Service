@@ -5,77 +5,82 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
 using System.Data.SqlClient;
-using static Dapper.SqlMapper;
 
-namespace DataAccess {
-    public class UserAccess : IUserAccess {
+namespace DataAccess
+{
+    public class UserAccess : IUserAccess
+    {
 
         private IConnection _connectionString;
         private readonly ILogger<UserAccess>? _logger;
 
-        public UserAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<UserAccess>? logger = null) {
+        public UserAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<UserAccess>? logger = null)
+        {
             _connectionString = _mssqlConnection;
             _logger = logger;
         }
-
-        public UserAccess(string connectionString) {
-            //_connectionString = connectionString;
-        }
-
-        public async Task<bool> Create(User entity) {
-            bool userInserted = false;
+        public async Task<bool> Create(User entity)
+        {
             using var db = _connectionString.GetConnection();
-            var sql = @"
-                            INSERT INTO [User] (
-                                userId,
-                                firstName,
-                                lastName,
-                                birthdate,
-                                phone,
-                                email,
-                                address,
-                                zipcode,
-                                city
-                            )
-                            VALUES (
-                                @userId,
-                                @firstName,
-                                @lastName,
-                                @birthdate,
-                                @phone,
-                                @email,
-                                @address,
-                                @zipcode,
-                                @city
-                            )";
 
-            try {
-                var rowsAffected = await db.ExecuteAsync(sql, entity);
-                if (rowsAffected > 0) {
-                    userInserted = true;
-                    _logger?.LogInformation($"A user is created with userId {entity.UserId}");
+            // Giv en ny GUID hvis UserId mangler
+            entity.UserId ??= Guid.NewGuid().ToString();
 
+            const string sql = @"
+        INSERT INTO [User] (
+            userId,
+            firstName,
+            lastName,
+            email
+        )
+        VALUES (
+            @userId,
+            @firstName,
+            @lastName,
+            @email
+        )";
+
+            try
+            {
+                int rowsAffected = await db.ExecuteAsync(sql, new
+                {
+                    userId = entity.UserId,
+                    firstName = entity.FirstName,
+                    lastName = entity.LastName,
+                    email = entity.Email
+                });
+
+                if (rowsAffected > 0)
+                {
+                    _logger?.LogInformation("User successfully created. UserId: {UserId}, Email: {Email}", entity.UserId, entity.Email);
+                    return true;
+                } else
+                {
+                    _logger?.LogWarning("User was not created. No rows affected. Email: {Email}", entity.Email);
+                    return false;
                 }
-            } catch (Exception ex) {
-                userInserted = false;
-                _logger?.LogError(ex.Message + "// Create user failed");
+            } catch (SqlException sqlEx)
+            {
+                _logger?.LogError(sqlEx, "SQL Error while creating user with Email: {Email}", entity.Email);
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Unexpected error while creating user with Email: {Email}", entity.Email);
             }
-            return userInserted;
+
+            return false;
         }
 
-        public async Task<User> Get(string id) {
+
+
+        public async Task<User> Get(string id)
+        {
             User? foundUser = null;
 
             string sql = @"SELECT
-                            userid,
-                            firstname,
-                            lastname,
-                            birthdate,
-                            phone,
-                            email,
-                            address,
-                            zipcode,
-                            city
+                            userId,
+                            firstName,
+                            lastName,
+                            email
                         FROM
                             [User]
                         WHERE
@@ -83,52 +88,77 @@ namespace DataAccess {
 
             using var db = _connectionString.GetConnection();
 
-            try {
+            try
+            {
                 var userEnumerable = await db.QueryAsync<User>(sql, new { userId = id });
                 foundUser = userEnumerable.FirstOrDefault();
-                if (foundUser != null) {
+                if (foundUser != null)
+                {
                     _logger?.LogInformation($"A user was found with userId {foundUser.UserId}");
                 }
-            } catch (Exception ex) {
+            } catch (Exception ex)
+            {
                 _logger?.LogError(ex.Message + "// Get a user failed");
             }
             return foundUser;
         }
 
-        public async Task<bool> Update(User entity) {
+        public async Task<bool> Update(User entity)
+        {
             int rowsAffected = -1;
 
             string sql = @"UPDATE [User]
                            SET
                             firstName = @firstName,
                             lastName = @lastName,
-                            birthdate = @birthdate,
-                            phone = @phone,
-                            email = @email,
-                            address = @address,
-                            zipcode = @zipcode,
-                            city = @city
+                            email = @email
                         WHERE   
                             userId = @userId";
 
-            try {
+            try
+            {
                 using var db = _connectionString.GetConnection();
-
                 rowsAffected = await db.ExecuteAsync(sql, entity);
 
-
-                if (rowsAffected > 0) {
+                if (rowsAffected > 0)
+                {
                     _logger?.LogInformation($"User {entity.UserId} was updated");
-
-                } else {
+                } else
+                {
                     _logger?.LogWarning($"User {entity.UserId} was not updated");
                 }
-            } catch (Exception ex) {
+            } catch (Exception ex)
+            {
                 _logger?.LogError($"There was an error updating {entity.UserId} the message was {ex.Message}");
                 throw;
             }
 
             return rowsAffected > 0;
+        }
+
+        public async Task<User?> GetByEmail(string email)
+        {
+            using var db = _connectionString.GetConnection();
+
+            string sql = @"SELECT
+                            userId,
+                            firstName,
+                            lastName,
+                            email
+                        FROM
+                            [User]
+                        WHERE
+                            email = @email";
+
+            try
+            {
+                var result = await db.QueryAsync<User>(sql, new { email });
+                return result.FirstOrDefault();
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex.Message + "// GetByEmail failed");
+                return null;
+            }
         }
     }
 }

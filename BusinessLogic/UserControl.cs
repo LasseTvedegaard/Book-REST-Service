@@ -25,5 +25,11 @@ namespace BusinessLogic {
         public async Task<bool> Update(User entity) {
             return await _userAccess.Update(entity);
         }
+
+        public async Task<User?> GetByEmail(string email)
+        {
+            return await _userAccess.GetByEmail(email);
+        }
+
     }
 }

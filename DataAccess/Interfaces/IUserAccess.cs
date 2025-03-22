@@ -10,5 +10,6 @@ namespace DataAccess.Interfaces {
         Task<bool> Create(User entity);
         Task<User> Get(string id);
         Task<bool> Update(User entity);
+        Task<User?> GetByEmail(string email);
     }
 }

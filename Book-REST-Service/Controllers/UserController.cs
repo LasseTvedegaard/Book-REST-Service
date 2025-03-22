@@ -2,70 +2,107 @@
 using Microsoft.AspNetCore.Mvc;
 using Model;
 
-namespace Book_REST_Service.Controllers {
+namespace Book_REST_Service.Controllers
+{
     [Route("api/[controller]")]
     [ApiController]
-    public class UserController : ControllerBase {
+    public class UserController : ControllerBase
+    {
 
         private readonly IUserControl _userControl;
+        private readonly ILogger<UserController> _logger;
 
-        public UserController(IUserControl userControl) {
+        public UserController(IUserControl userControl, ILogger<UserController> logger)
+        {
             _userControl = userControl;
+            _logger = logger;
         }
 
         // POST api/<UserController>
         [HttpPost]
-        public async Task<ActionResult<bool>> CreateUser([FromBody] User userToCreate) {
-            ActionResult<bool> foundResult;
-            bool insertedOk = false;
-
-            if (userToCreate != null) {
-                insertedOk = await _userControl.Create(userToCreate);
-
-                if (insertedOk == true) {
-                    foundResult = Ok(insertedOk);
-                } else {
-                    return BadRequest();
-                }
-            } else {
-                foundResult = new BadRequestResult();
+        public async Task<ActionResult<bool>> CreateUser([FromBody] User userToCreate)
+        {
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning("CreateUser received invalid model");
+                return BadRequest(ModelState);
             }
 
-            return foundResult;
+            userToCreate.UserId ??= Guid.NewGuid().ToString();
+
+            try
+            {
+                bool insertedOk = await _userControl.Create(userToCreate);
+
+                if (insertedOk)
+                {
+                    _logger.LogInformation("User created with ID: {UserId}", userToCreate.UserId);
+                    return Ok(true);
+                } else
+                {
+                    _logger.LogWarning("User creation failed for email: {Email}", userToCreate.Email);
+                    return StatusCode(500, "User creation failed");
+                }
+            } catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception occurred while creating user");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
-        // GET api/<UserController>/5
+
+        // GET api/<UserController>/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<User>> Get(string id) {
-            ActionResult<User> foundReturn;
-
-            User? foundUser = await _userControl.Get(id);
-
-            if (foundUser != null) {
-                foundReturn = Ok(foundUser);
-            } else {
-                foundReturn = new StatusCodeResult(204);
+        public async Task<ActionResult<User>> Get(string id)
+        {
+            var foundUser = await _userControl.Get(id);
+            if (foundUser != null)
+            {
+                return Ok(foundUser);
+            } else
+            {
+                return NoContent();
             }
-            return foundReturn;
         }
 
-        // PUT api/<UserController>/5
+        // PUT api/<UserController>/{id}
         [HttpPut("{id}")]
-        public async Task<ActionResult<bool>> Put(string id, [FromBody] User userToUpdate) {
-            ActionResult<bool > foundResult;
-            bool isUpdated = false;
-            if (userToUpdate != null) {
-                isUpdated = await _userControl.Update(userToUpdate);
+        public async Task<ActionResult<bool>> Put(string id, [FromBody] User userToUpdate)
+        {
+            if (userToUpdate == null) return BadRequest();
 
-                if (isUpdated == true) {
-                    foundResult = Ok(isUpdated);
-                } else {
-                    return BadRequest();
-                }
-            } else {
-                foundResult = new BadRequestResult();
+            bool isUpdated = await _userControl.Update(userToUpdate);
+
+            if (isUpdated)
+            {
+                return Ok(true);
+            } else
+            {
+                return BadRequest("Update failed");
             }
-            return foundResult;
         }
+
+        // GET api/user/email/{email}
+        [HttpGet("email/{email}")]
+        public async Task<ActionResult<User>> GetByEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                _logger.LogWarning("GetByEmail called with empty email");
+                return BadRequest("Email is required");
+            }
+
+            var user = await _userControl.GetByEmail(email);
+
+            if (user == null)
+            {
+                _logger.LogWarning("No user found with email: {Email}", email);
+                return NotFound("Bruger ikke fundet");
+            }
+
+            _logger.LogInformation("User found with email: {Email}", email);
+            return Ok(user);
+        }
+
     }
 }

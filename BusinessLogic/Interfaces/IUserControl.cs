@@ -11,5 +11,7 @@ namespace BusinessLogic.Interfaces {
         Task<User> Get(string id);
         Task<bool> Update(User entity);
         Task<User?> GetByEmail(string email);
+        Task<(User user, string token)> LoginAsync(string email);
+
     }
 }

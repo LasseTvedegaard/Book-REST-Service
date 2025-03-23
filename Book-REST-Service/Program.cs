@@ -118,7 +118,7 @@ namespace Book_REST_Service
             app.UseRouting();
             app.UseCors("AllowAllOrigins");
 
-            app.UseAuthentication(); // <- VIGTIGT! Skal være før authorization
+            app.UseAuthentication(); 
             app.UseAuthorization();
 
             app.MapControllers();

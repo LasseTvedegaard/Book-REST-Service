@@ -4,66 +4,95 @@ using DataAccess.Interfaces;
 using DTOs;
 using Model;
 
-namespace BusinessLogic {
-    public class BookControl : IBookControl {
+namespace BusinessLogic
+{
+    public class BookControl : IBookControl
+    {
         private readonly IBookAccess _bookAccess;
 
-        public BookControl(IBookAccess bookAccess) {
+        public BookControl(IBookAccess bookAccess)
+        {
             _bookAccess = bookAccess;
         }
-        public async Task<int> Create(BookInDto entity) {
+
+        public async Task<int> Create(BookInDto entity)
+        {
             int createdId = -1;
 
-            if (entity != null) {
+            if (entity != null)
+            {
                 Book? internBook = BookDtoConvert.FromDtoToBook(entity);
-                if (internBook != null) {
+                if (internBook != null)
+                {
                     createdId = await _bookAccess.Create(internBook);
                 }
             }
             return createdId;
         }
 
-        public async Task<BookOutDto?> Get(int id) {
+        public async Task<BookOutDto?> Get(int id)
+        {
             BookOutDto? foundDto = null;
 
-            if (id > 0) {
+            if (id > 0)
+            {
                 Book? foundBook = await _bookAccess.Get(id);
-                if (foundBook != null) {
+                if (foundBook != null)
+                {
                     foundDto = BookDtoConvert.FromBookToDto(foundBook);
                 }
             }
             return foundDto;
         }
 
-        // This method is in the businessLogic layer and tries to retrieve a list of all books from the database
-        public async Task<List<BookOutDto>?> GetAll() {
-
-            // Initialize a nullable list to store the retrieved BookOutDto objects.
+        public async Task<List<BookOutDto>?> GetAll(string? status = null)
+        {
             List<BookOutDto>? foundDtos = null;
+            List<Book> foundBooks;
 
-            // Retrieve books asynchronously using the _bookAccess class.
-            List<Book> foundBooks = await _bookAccess.GetAll();
+            if (!string.IsNullOrEmpty(status))
+            {
+                foundBooks = await _bookAccess.GetByStatus(status);  // Fetch books filtered by status
+            } else
+            {
+                foundBooks = await _bookAccess.GetAll();  // Fetch all books
+            }
 
-            // Check if any books were retrieved.
-            if (foundBooks != null) {
-
-                // Convert the list of Book objects to a list of BookOutDto objects.
-                // This filters the information that will be sent to the frontend.
+            if (foundBooks != null)
+            {
                 foundDtos = BookDtoConvert.FromBookDtoToList(foundBooks);
             }
+
             return foundDtos;
         }
 
-        public async Task<bool> Update(int id, BookInDto entity) {
+        public async Task<bool> Update(int id, BookInDto entity)
+        {
             bool isUpdated = false;
 
-            if (entity != null) {
+            if (entity != null)
+            {
                 Book? bookToUpdate = BookDtoConvert.FromDtoToBook(entity);
-                if (bookToUpdate != null) {
+                if (bookToUpdate != null)
+                {
                     isUpdated = await _bookAccess.Update(id, bookToUpdate);
                 }
             }
             return isUpdated;
+        }
+
+        public async Task<List<BookOutDto>?> GetByStatus(string status)
+        {
+            List<BookOutDto>? foundDtos = null;
+
+            List<Book> foundBooks = await _bookAccess.GetByStatus(status);
+
+            if (foundBooks != null)
+            {
+                foundDtos = BookDtoConvert.FromBookDtoToList(foundBooks);
+            }
+
+            return foundDtos;
         }
     }
 }

@@ -9,7 +9,6 @@ namespace Book_REST_Service.Controllers
     [ApiController]
     public class BookController : ControllerBase
     {
-
         private readonly IBookControl _bookControl;
         private readonly ILogger<BookController>? _logger;
 
@@ -19,13 +18,13 @@ namespace Book_REST_Service.Controllers
             _logger = logger;
         }
 
-        // GET: api/<booksController>
+        // GET: api/<BooksController>
         [HttpGet]
         [AllowAnonymous] // Offentlig adgang
-        public async Task<ActionResult<List<BookOutDto>>> GetAll()
+        public async Task<ActionResult<List<BookOutDto>>> GetAll([FromQuery] string? status)  // Tilføjet query parameter til status
         {
             ActionResult<List<BookOutDto>> foundReturn;
-            List<BookOutDto>? foundDtos = await _bookControl.GetAll();
+            List<BookOutDto>? foundDtos = await _bookControl.GetAll(status);  // Videregiv status til BookControl
 
             if (foundDtos != null)
             {
@@ -111,28 +110,36 @@ namespace Book_REST_Service.Controllers
         // PUT api/<BooksController>/5
         [HttpPut("{id}")]
         [Authorize] // Kun for loggede brugere
-        public async Task<ActionResult<bool>> UpdateBook(int id, [FromBody] BookInDto bookToUpdate)
+        public async Task<ActionResult<BookOutDto>> UpdateBook(int id, [FromBody] BookInDto bookToUpdate)
         {
-            ActionResult<bool> foundResult;
-            bool isUpdated = false;
-
-            if (bookToUpdate != null && id > 0)
+            if (bookToUpdate == null || id <= 0)
             {
-                isUpdated = await _bookControl.Update(id, bookToUpdate);
+                // Hvis ingen data modtages eller id er ugyldigt, returner BadRequest
+                return BadRequest("Invalid book data or book ID.");
+            }
+
+            try
+            {
+                // Opdaterer bogen gennem BookControl
+                bool isUpdated = await _bookControl.Update(id, bookToUpdate);
 
                 if (isUpdated)
                 {
-                    foundResult = Ok(true);
+                    // Find den opdaterede bog og returner den som BookOutDto
+                    BookOutDto updatedBook = await _bookControl.Get(id);
+                    return Ok(updatedBook);
                 } else
                 {
-                    foundResult = new StatusCodeResult(500);
+                    // Hvis opdatering ikke lykkes, returner en fejlstatus
+                    return StatusCode(500, "Failed to update the book.");
                 }
-            } else
+            } catch (Exception ex)
             {
-                foundResult = new StatusCodeResult(500);
+                // Håndter fejl og log dem
+                _logger?.LogError(ex, "An error occurred while updating the book with ID: {Id}", id);
+                return StatusCode(500, "Internal server error.");
             }
-
-            return foundResult;
         }
+
     }
 }

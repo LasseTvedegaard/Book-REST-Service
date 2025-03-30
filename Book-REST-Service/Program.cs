@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-
 namespace Book_REST_Service
 {
     public class Program
@@ -71,8 +70,12 @@ namespace Book_REST_Service
             // Register the generic connection with LibraryConnection as the type parameter
             builder.Services.AddTransient(typeof(IGenericConnection<LibraryConnection>), typeof(GenericConnection<LibraryConnection>));
 
-            // MVC Controllers
-            builder.Services.AddControllers();
+            // MVC Controllers with case-insensitive JSON binding
+            builder.Services.AddControllers()
+                .AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                });
 
             // CORS
             builder.Services.AddCors(options => {
@@ -118,7 +121,7 @@ namespace Book_REST_Service
             app.UseRouting();
             app.UseCors("AllowAllOrigins");
 
-            app.UseAuthentication(); 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();

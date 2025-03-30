@@ -142,6 +142,82 @@ namespace DataAccess {
             }
         }
 
+        public async Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType)
+        {
+            var sql = @"
+        SELECT
+            Log.logId,
+            Log.currentPage,
+            Log.noOfPages,
+            Log.listType,
+            Book.bookId,
+            [User].userId AS userId
+        FROM Log
+        JOIN [User] ON Log.userId = [User].userId
+        JOIN Book ON Log.bookId = Book.bookId
+        WHERE Log.userId = @UserId AND Log.listType = @ListType";
+
+            using var db = _connectionString.GetConnection();
+
+            var result = await db.QueryAsync<Log, Book, User, Log>(
+                sql,
+                (log, book, user) => {
+                    log.Book = book;
+                    log.User = user;
+                    return log;
+                },
+                new { UserId = userId, ListType = listType },
+                splitOn: "bookId, userId"
+            );
+
+            // Hent fulde bogdetaljer for hver log (valgfrit – afhængigt af behov)
+            foreach (var log in result)
+            {
+                log.Book = await _bookAccess.Get(log.Book.BookId);
+            }
+
+            return result;
+        }
+
+        public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType)
+        {
+            var sql = @"
+    SELECT l.logId, l.currentPage, l.noOfPages, l.listType,
+           b.bookId, u.userId
+    FROM Log l
+    INNER JOIN (
+        SELECT bookId, MAX(logId) AS MaxLogId
+        FROM Log
+        WHERE userId = @UserId AND listType = @ListType
+        GROUP BY bookId
+    ) latest ON l.logId = latest.MaxLogId
+    JOIN Book b ON l.bookId = b.bookId
+    JOIN [User] u ON l.userId = u.userId";
+
+            using var db = _connectionString.GetConnection();
+
+            var result = await db.QueryAsync<Log, Book, User, Log>(
+                sql,
+                (log, book, user) =>
+                {
+                    log.Book = book;
+                    log.User = user;
+                    return log;
+                },
+                new { UserId = userId, ListType = listType },
+                splitOn: "bookId, userId"
+            );
+
+            // Valgfrit – hent fulde book-detaljer hvis nødvendigt
+            foreach (var log in result)
+            {
+                log.Book = await _bookAccess.Get(log.Book.BookId);
+            }
+
+            return result;
+        }
+
+
     }
 
 }

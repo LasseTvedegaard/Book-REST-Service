@@ -2,82 +2,84 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Model;
+using DTOs;
 
-namespace Book_REST_Service.Controllers {
+namespace Book_REST_Service.Controllers
+{
     [Route("api/[controller]")]
     [ApiController]
-    public class LogController : ControllerBase {
-
+    public class LogController : ControllerBase
+    {
         private readonly ILogControl _logControl;
         private readonly ILogger<LogController>? _logger;
 
-        public LogController(ILogControl logControl, ILogger<LogController>? logger = null) {
+        public LogController(ILogControl logControl, ILogger<LogController>? logger = null)
+        {
             _logControl = logControl;
             _logger = logger;
         }
 
-        // POST api/<LogController>
+        // ✅ POST api/log
         [HttpPost]
-        public async Task<IActionResult> CreateLog([FromBody] Log logToCreate) {
-            IActionResult foundResult;
-            
-            int returnCode = -1;
+        public async Task<IActionResult> CreateLog([FromBody] LogCreateDto logDto)
+        {
+            if (logDto == null) return BadRequest();
 
-            string listType = logToCreate.ListType;
-            
-            returnCode = await _logControl.Create(logToCreate, listType);
-            
-            switch (returnCode) {
-                case >= 0:
-                    logToCreate.LogId = returnCode;
-                    foundResult = CreatedAtAction("Get", new { id = returnCode, listType }, logToCreate); // 201
+            var logToCreate = new Log
+            {
+                BookId = logDto.BookId,
+                UserId = logDto.UserId,
+                CurrentPage = logDto.CurrentPage,
+                NoOfPages = logDto.NoOfPages,
+                ListType = logDto.ListType
+            };
 
-                    break;
-                case -500:
-                    foundResult = StatusCode(500);
-                    break;
-                default:
-                    foundResult = StatusCode(400);
-                    break;
-            }
-            return foundResult;
+            int returnCode = await _logControl.Create(logToCreate, logDto.ListType);
+
+            return returnCode switch
+            {
+                >= 0 => CreatedAtAction("Get", new { id = returnCode, listType = logDto.ListType }, logToCreate),
+                -500 => StatusCode(500),
+                _ => BadRequest()
+            };
         }
 
-        // GET: api/<LogController>/5
+        // ✅ GET api/log/5?listType=reading
         [HttpGet("{id}")]
-        public async Task<ActionResult<Log>> Get(int id, string listType) {
-            ActionResult<Log> foundReturn;
-            Log foundLog = await _logControl.GetLogById(id, listType);
-            if (foundLog != null) {
-                foundReturn = Ok(foundLog);
-            } else {
-                foundReturn = StatusCode(204);
-            }
-            return foundReturn;
+        public async Task<ActionResult<Log>> Get(int id, [FromQuery] string listType)
+        {
+            var foundLog = await _logControl.GetLogById(id, listType);
+            return foundLog != null ? Ok(foundLog) : NoContent();
         }
 
-        // PUT api/<LogController>/5
+        // ✅ PUT api/log/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateLog(int id, [FromBody] Log updatedLog) {
+        public async Task<IActionResult> UpdateLog(int id, [FromBody] Log updatedLog)
+        {
             int returnCode = await _logControl.Update(id, updatedLog);
-            IActionResult foundResult;
-
-            switch (returnCode) {
-                case 0:
-                    foundResult = Ok();
-                    break;
-                case -1:
-                    foundResult = NotFound();
-                    break;
-                case -500:
-                    foundResult = StatusCode(500);
-                    break;
-                    default:
-                    foundResult = StatusCode(400);
-                    break;
-            }
-            return foundResult;
+            return returnCode switch
+            {
+                0 => Ok(),
+                -1 => NotFound(),
+                -500 => StatusCode(500),
+                _ => BadRequest()
+            };
         }
 
+        // ✅ GET api/log/user/{userId}/all?listType=reading
+        [HttpGet("user/{userId}/all")]
+        public async Task<ActionResult<IEnumerable<Log>>> GetLogsByUser(Guid userId, [FromQuery] string listType)
+        {
+            var logs = await _logControl.GetLogsByUser(userId, listType);
+            return (logs == null || !logs.Any()) ? NoContent() : Ok(logs);
+        }
+
+        // ✅ GET api/log/user/{userId}/latest?listType=reading
+        [HttpGet("user/{userId}/latest")]
+        public async Task<ActionResult<IEnumerable<Log>>> GetLatestLogs(Guid userId, [FromQuery] string listType)
+        {
+            var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
+            return (logs == null || !logs.Any()) ? NoContent() : Ok(logs);
+        }
     }
 }

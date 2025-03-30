@@ -52,37 +52,6 @@ namespace Book_REST_Service.Controllers
             return foundLog != null ? Ok(foundLog) : NoContent();
         }
 
-        // ✅ PUT api/log/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateLog(int id, [FromBody] LogCreateDto logDto)
-        {
-            if (logDto == null)
-                return BadRequest("Log data is missing.");
-
-            if (logDto.CurrentPage > logDto.NoOfPages)
-                return BadRequest("Current page cannot be greater than total pages.");
-
-            var updatedLog = new Log
-            {
-                LogId = id,
-                BookId = logDto.BookId,
-                UserId = logDto.UserId,
-                CurrentPage = logDto.CurrentPage,
-                NoOfPages = logDto.NoOfPages,
-                ListType = logDto.ListType
-            };
-
-            int returnCode = await _logControl.Update(id, updatedLog);
-
-            return returnCode switch
-            {
-                0 => Ok(updatedLog),
-                -1 => NotFound("Log not found."),
-                -500 => StatusCode(500, "Error updating log."),
-                _ => BadRequest("Unknown error occurred.")
-            };
-        }
-
 
         // ✅ GET api/log/user/{userId}/all?listType=reading
         [HttpGet("user/{userId}/all")]

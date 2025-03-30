@@ -18,8 +18,10 @@ namespace BusinessLogic
 
         public async Task<int> Create(Log entity, string listType)
         {
-            return await _logAccess.Create(entity, listType);
+            entity.ListType = listType; // 👈 tilføj listType til objektet her
+            return await _logAccess.Create(entity); // 👈 kun ét argument nu
         }
+
 
         public Task<List<Log>> GetAllLogs(string userId)
         {
@@ -36,10 +38,6 @@ namespace BusinessLogic
             throw new NotImplementedException();
         }
 
-        public async Task<int> Update(int logId, Log updatedLog)
-        {
-            return await _logAccess.Update(logId, updatedLog);
-        }
 
         // ✅ Her er den nye metode - korrekt placeret inde i klassen
         public async Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType)

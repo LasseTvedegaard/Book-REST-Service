@@ -208,8 +208,8 @@ namespace DataAccess {
                     bookType = entity.BookType,
                     imageURL = entity.ImageURL,
                     status = entity.Status,
-                    genreId = entity.Genre?.GenreId ?? 0,  
-                    locationId = entity.Location?.LocationId ?? 0,  
+                    genreId = (entity.Genre != null && entity.Genre.GenreId > 0) ? (int?)entity.Genre.GenreId : null,
+                    locationId = (entity.Location != null && entity.Location.LocationId > 0) ? (int?)entity.Location.LocationId : null,
                     bookId = entity.BookId,
                 });
 
@@ -269,6 +269,19 @@ namespace DataAccess {
     transaction.Commit();
     return books;
 }
+
+        public async Task<bool> UpdateStatus(int bookId, string status)
+        {
+            using var db = _connectionString.GetConnection();
+
+            string sql = "UPDATE Book SET status = @status WHERE bookId = @bookId";
+
+            var rowsAffected = await db.ExecuteAsync(sql, new { status, bookId });
+
+            return rowsAffected > 0;
+        }
+
+
 
     }
 }

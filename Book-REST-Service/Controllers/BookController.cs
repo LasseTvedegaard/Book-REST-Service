@@ -141,5 +141,22 @@ namespace Book_REST_Service.Controllers
             }
         }
 
+        [HttpPatch("status/{id}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateBookStatus(int id, [FromBody] string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return BadRequest("Status cannot be empty.");
+            }
+
+            var success = await _bookControl.UpdateStatus(id, status);
+
+            if (success) return Ok();
+            return StatusCode(500, "Failed to update book status.");
+        }
+
+
+
     }
 }

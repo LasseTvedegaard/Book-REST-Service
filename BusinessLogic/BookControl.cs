@@ -94,5 +94,23 @@ namespace BusinessLogic
 
             return foundDtos;
         }
+
+        public async Task<bool> UpdateStatus(int id, string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return false;
+
+            // Hent den eksisterende bog
+            var existingBook = await _bookAccess.Get(id);
+            if (existingBook == null)
+                return false;
+
+            // Opdater status
+            existingBook.Status = status;
+
+            // Gem opdateringen
+            return await _bookAccess.Update(id, existingBook);
+        }
+
     }
 }

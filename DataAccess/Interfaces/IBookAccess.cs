@@ -8,6 +8,7 @@ namespace DataAccess.Interfaces {
         Task<List<Book>> GetAll();
         Task<bool> Update(int id, Book entity);
         Task<List<Book>> GetByStatus(string status);
+        Task<bool> UpdateStatus(int id, string status);
 
     }
 }

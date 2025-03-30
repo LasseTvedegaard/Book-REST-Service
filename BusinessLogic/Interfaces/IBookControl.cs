@@ -9,5 +9,7 @@ namespace BusinessLogic.Interfaces
         Task<List<BookOutDto>?> GetAll(string? status = null);  // Tilføjet statusparameter
         Task<bool> Update(int id, BookInDto entity);
         Task<List<BookOutDto>?> GetByStatus(string status);  // Tilføjet GetByStatus-metode
+        Task<bool> UpdateStatus(int id, string status);
+
     }
 }

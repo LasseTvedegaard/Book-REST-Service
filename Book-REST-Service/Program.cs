@@ -61,6 +61,11 @@ namespace Book_REST_Service
             builder.Services.AddTransient<ILogControl, LogControl>();
             builder.Services.AddTransient<ILogAccess, LogAccess>();
 
+            // ReadingNote services
+            builder.Services.AddScoped<IReadingNoteControl, ReadingNoteControl>();
+            builder.Services.AddScoped<IReadingNoteAccess, ReadingNoteAccess>();
+
+
             // Database connection service
             builder.Services.AddTransient(provider => new LibraryConnection(connectionString));
 

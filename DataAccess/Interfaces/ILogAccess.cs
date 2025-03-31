@@ -10,5 +10,6 @@ namespace DataAccess.Interfaces
         Task<Log> GetLogById(int logId, string listType);
         Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType);
         Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType);
+
     }
 }

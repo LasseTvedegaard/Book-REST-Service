@@ -33,50 +33,49 @@ namespace DataAccess
         {
             int statusCodeOrId = -1;
 
+            // Sikrer at CreatedAt altid bliver sat (og ikke er default 0001-01-01)
+            entity.CreatedAt = DateTime.Now;
+
             var sql = @"INSERT INTO [dbo].[log] 
-                (bookId, 
-                userId, 
-                currentPage, 
-                noOfPages, 
-                ListType)
+                (bookId, userId, currentPage, noOfPages, ListType, CreatedAt)
                 VALUES 
-                (@bookId, 
-                 @userId, 
-                 @currentPage, 
-                 @noOfPages, 
-                 @listType);
+                (@bookId, @userId, @currentPage, @noOfPages, @listType, @createdAt);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
             try
             {
                 using var db = _connectionString.GetConnection();
+
+                // Log connection string for at verificere hvilken DB du bruger
+                _logger?.LogInformation($"[LogAccess] Bruger connection: {db.ConnectionString}");
+
                 statusCodeOrId = await db.ExecuteScalarAsync<int>(sql, new
                 {
                     bookId = entity.BookId,
                     userId = entity.UserId,
                     currentPage = entity.CurrentPage,
                     noOfPages = entity.NoOfPages,
-                    listType = entity.ListType  // ✅ Brug nu feltet direkte fra objektet
+                    listType = entity.ListType,
+                    createdAt = entity.CreatedAt
                 });
 
                 if (statusCodeOrId == 0)
                 {
-                    _logger?.LogError("No ID returned after insert");
+                    _logger?.LogError("❌ Ingen ID returneret efter INSERT – SCOPE_IDENTITY() gav 0");
                     statusCodeOrId = 500;
+                } else
+                {
+                    _logger?.LogInformation($"✅ Log oprettet med ID: {statusCodeOrId}");
                 }
             } catch (Exception ex)
             {
-                _logger?.LogError(ex.Message);
+                _logger?.LogError($"❌ Fejl ved INSERT i log: {ex.Message}");
                 statusCodeOrId = 500;
             }
 
             return statusCodeOrId;
         }
 
-        public Task<List<Log>> GetAllLogs(string userId)
-        {
-            throw new NotImplementedException();
-        }
 
         public async Task<Log> GetLogById(int logId, string listType)
         {
@@ -229,5 +228,47 @@ namespace DataAccess
 
             return result;
         }
+
+        public async Task<List<Log>> GetAllLogs(string userId)
+        {
+            var sql = @"
+        SELECT
+            l.logId,
+            l.bookId,
+            l.userId,
+            l.currentPage,
+            l.noOfPages,
+            l.listType,
+            l.createdAt,
+            b.bookId,
+            u.userId
+        FROM Log l
+        JOIN [User] u ON l.userId = u.userId
+        JOIN Book b ON l.bookId = b.bookId
+        WHERE l.userId = @UserId
+        ORDER BY l.createdAt ASC";
+
+            using var db = _connectionString.GetConnection();
+
+            var result = await db.QueryAsync<Log, Book, User, Log>(
+                sql,
+                (log, book, user) =>
+                {
+                    log.Book = book;
+                    log.User = user;
+                    return log;
+                },
+                new { UserId = userId },
+                splitOn: "bookId,userId"
+            );
+
+            foreach (var log in result)
+            {
+                log.Book = await _bookAccess.Get(log.Book.BookId);
+            }
+
+            return result.ToList();
+        }
+
     }
 }

@@ -68,5 +68,21 @@ namespace Book_REST_Service.Controllers
             var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
             return (logs == null || !logs.Any()) ? NoContent() : Ok(logs);
         }
+
+        [HttpGet("user/{userId}/history")]
+        public async Task<IActionResult> GetAllLogsForUser(string userId)
+        {
+            try
+            {
+                var logs = await _logControl.GetAllLogs(userId); // ✅ Brug _logControl
+
+                return Ok(logs);
+            } catch (Exception ex)
+            {
+                _logger?.LogError($"Fejl ved hentning af logs for bruger {userId}: {ex.Message}");
+                return StatusCode(500, "Der opstod en fejl ved hentning af læselogs.");
+            }
+        }
+
     }
 }

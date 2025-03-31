@@ -23,11 +23,6 @@ namespace BusinessLogic
         }
 
 
-        public Task<List<Log>> GetAllLogs(string userId)
-        {
-            throw new NotImplementedException();
-        }
-
         public async Task<Log> GetLogById(int logId, string listType)
         {
             return await _logAccess.GetLogById(logId, listType);
@@ -47,6 +42,10 @@ namespace BusinessLogic
         public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType)
         {
             return await _logAccess.GetLatestLogsByUserAndListType(userId, listType);
+        }
+        public async Task<List<Log>> GetAllLogs(string userId)
+        {
+            return await _logAccess.GetAllLogs(userId);
         }
 
 

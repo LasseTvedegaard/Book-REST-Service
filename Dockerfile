@@ -1,22 +1,18 @@
-# Backend build stage
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build-env
+# Base image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
+EXPOSE 80
 
-# Copy csproj and restore as distinct layers
-COPY *.sln ./
-COPY Book-REST-Service/*.csproj ./Book-REST-Service/
-COPY BusinessLogic/*.csproj ./BusinessLogic/
-COPY DataAccess/*.csproj ./DataAccess/
-COPY DTOs/*.csproj ./DTOs/
-COPY Model/*.csproj ./Model/
-RUN dotnet restore
+# Build image
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY . .
+WORKDIR /src/Book-REST-Service
+RUN dotnet publish "Book-REST-Service.csproj" -c Release -o /app/publish
 
-# Copy everything else and build
-COPY . ./
-RUN dotnet publish -c Release -o out
-
-# Final stage: build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:6.0
+# Final image
+FROM base AS final
 WORKDIR /app
-COPY --from=build-env /app/out .
+COPY --from=build /app/publish .
+ENV ASPNETCORE_URLS=http://+:80    # 👈 denne linje tilføjes
 ENTRYPOINT ["dotnet", "Book-REST-Service.dll"]

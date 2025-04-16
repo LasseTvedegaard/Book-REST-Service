@@ -4,159 +4,164 @@ using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
-using System.Data.SqlClient;
+using Npgsql;
 
 namespace DataAccess
 {
     public class UserAccess : IUserAccess
     {
-
-        private IConnection _connectionString;
+        private readonly IConnection _connectionString;
         private readonly ILogger<UserAccess>? _logger;
 
-        public UserAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<UserAccess>? logger = null)
+        public UserAccess(IGenericConnection<LibraryConnection> pgConnection, IConfiguration configuration, ILogger<UserAccess>? logger = null)
         {
-            _connectionString = _mssqlConnection;
+            _connectionString = pgConnection;
             _logger = logger;
         }
+
         public async Task<bool> Create(User entity)
         {
             using var db = _connectionString.GetConnection();
-
-            // Giv en ny GUID hvis UserId mangler
             entity.UserId ??= Guid.NewGuid().ToString();
 
             const string sql = @"
-        INSERT INTO [User] (
-            userId,
-            firstName,
-            lastName,
-            email
-        )
-        VALUES (
-            @userId,
-            @firstName,
-            @lastName,
-            @email
-        )";
+                INSERT INTO ""user"" (
+                    userid,
+                    firstname,
+                    lastname,
+                    email
+                )
+                VALUES (
+                    @UserId,
+                    @FirstName,
+                    @LastName,
+                    @Email
+                )";
 
             try
             {
-                int rowsAffected = await db.ExecuteAsync(sql, new
+                if (string.IsNullOrWhiteSpace(entity.Email))
                 {
-                    userId = entity.UserId,
-                    firstName = entity.FirstName,
-                    lastName = entity.LastName,
-                    email = entity.Email
-                });
+                    _logger?.LogWarning("Attempted to create user without email");
+                    return false;
+                }
+
+                // Tjek om email allerede findes
+                var existing = await GetByEmail(entity.Email);
+                if (existing != null)
+                {
+                    _logger?.LogWarning("User with email {Email} already exists", entity.Email);
+                    return false;
+                }
+
+                Console.WriteLine($"📤 Inserting user: {entity.FirstName} {entity.LastName}, {entity.Email}");
+                int rowsAffected = await db.ExecuteAsync(sql, entity);
 
                 if (rowsAffected > 0)
                 {
-                    _logger?.LogInformation("User successfully created. UserId: {UserId}, Email: {Email}", entity.UserId, entity.Email);
+                    _logger?.LogInformation("✅ User created. UserId: {UserId}, Email: {Email}", entity.UserId, entity.Email);
                     return true;
                 } else
                 {
-                    _logger?.LogWarning("User was not created. No rows affected. Email: {Email}", entity.Email);
+                    _logger?.LogWarning("⚠️ No rows affected for email: {Email}", entity.Email);
                     return false;
                 }
-            } catch (SqlException sqlEx)
+            } catch (PostgresException pgEx)
             {
-                _logger?.LogError(sqlEx, "SQL Error while creating user with Email: {Email}", entity.Email);
+                _logger?.LogError(pgEx, "🐘 PostgreSQL error in {Method}: {Email}", nameof(Create), entity.Email);
+                return false;
             } catch (Exception ex)
             {
-                _logger?.LogError(ex, "Unexpected error while creating user with Email: {Email}", entity.Email);
+                _logger?.LogError(ex, "🔥 Unhandled error in {Method} for user {@User}", nameof(Create), entity);
+                return false;
             }
-
-            return false;
         }
 
-
-
-        public async Task<User> Get(string id)
+        public async Task<User?> Get(string id)
         {
-            User? foundUser = null;
-
-            string sql = @"SELECT
-                            userId,
-                            firstName,
-                            lastName,
-                            email
-                        FROM
-                            [User]
-                        WHERE
-                            userId = @userId";
+            const string sql = @"
+                SELECT
+                    userid,
+                    firstname,
+                    lastname,
+                    email
+                FROM
+                    ""user""
+                WHERE
+                    userid = @id";
 
             using var db = _connectionString.GetConnection();
 
             try
             {
-                var userEnumerable = await db.QueryAsync<User>(sql, new { userId = id });
-                foundUser = userEnumerable.FirstOrDefault();
-                if (foundUser != null)
+                var user = await db.QueryFirstOrDefaultAsync<User>(sql, new { id });
+
+                if (user != null)
                 {
-                    _logger?.LogInformation($"A user was found with userId {foundUser.UserId}");
+                    _logger?.LogInformation("🔎 Found user with ID: {UserId}", user.UserId);
                 }
+
+                return user;
             } catch (Exception ex)
             {
-                _logger?.LogError(ex.Message + "// Get a user failed");
+                _logger?.LogError(ex, "❌ Error in {Method} while fetching user {Id}", nameof(Get), id);
+                return null;
             }
-            return foundUser;
         }
 
         public async Task<bool> Update(User entity)
         {
-            int rowsAffected = -1;
-
-            string sql = @"UPDATE [User]
-                           SET
-                            firstName = @firstName,
-                            lastName = @lastName,
-                            email = @email
-                        WHERE   
-                            userId = @userId";
+            const string sql = @"
+                UPDATE ""user""
+                SET
+                    firstname = @FirstName,
+                    lastname = @LastName,
+                    email = @Email
+                WHERE
+                    userid = @UserId";
 
             try
             {
                 using var db = _connectionString.GetConnection();
-                rowsAffected = await db.ExecuteAsync(sql, entity);
+                int rowsAffected = await db.ExecuteAsync(sql, entity);
 
                 if (rowsAffected > 0)
                 {
-                    _logger?.LogInformation($"User {entity.UserId} was updated");
+                    _logger?.LogInformation("✅ User {UserId} updated", entity.UserId);
+                    return true;
                 } else
                 {
-                    _logger?.LogWarning($"User {entity.UserId} was not updated");
+                    _logger?.LogWarning("⚠️ No update occurred for user: {UserId}", entity.UserId);
+                    return false;
                 }
             } catch (Exception ex)
             {
-                _logger?.LogError($"There was an error updating {entity.UserId} the message was {ex.Message}");
+                _logger?.LogError(ex, "🔥 Error in {Method} for user: {UserId}", nameof(Update), entity.UserId);
                 throw;
             }
-
-            return rowsAffected > 0;
         }
 
         public async Task<User?> GetByEmail(string email)
         {
-            using var db = _connectionString.GetConnection();
+            const string sql = @"
+                SELECT
+                    userid,
+                    firstname,
+                    lastname,
+                    email
+                FROM
+                    ""user""
+                WHERE
+                    email = @email";
 
-            string sql = @"SELECT
-                            userId,
-                            firstName,
-                            lastName,
-                            email
-                        FROM
-                            [User]
-                        WHERE
-                            email = @email";
+            using var db = _connectionString.GetConnection();
 
             try
             {
-                var result = await db.QueryAsync<User>(sql, new { email });
-                return result.FirstOrDefault();
+                return await db.QueryFirstOrDefaultAsync<User>(sql, new { email });
             } catch (Exception ex)
             {
-                _logger?.LogError(ex.Message + "// GetByEmail failed");
+                _logger?.LogError(ex, "❌ Error in {Method} while fetching user with email: {Email}", nameof(GetByEmail), email);
                 return null;
             }
         }

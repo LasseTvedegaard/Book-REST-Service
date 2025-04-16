@@ -2,15 +2,15 @@ using Book_REST_Service.Controllers;
 using BusinessLogic;
 using BusinessLogic.Interfaces;
 using DataAccess;
-using DataAccess.Interfaces;
-using DataAccess.Helpers;
-using Model;
-using Serilog;
-using Microsoft.Extensions.DependencyInjection;
 using DataAccess.Context;
+using DataAccess.Helpers;
+using DataAccess.Interfaces;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Model;
+using Serilog;
 using System.Text;
 
 namespace Book_REST_Service
@@ -19,80 +19,66 @@ namespace Book_REST_Service
     {
         public static void Main(string[] args)
         {
-            // Load environment variables from .env file
+            // Sørg for at log-mappen eksisterer, før Serilog starter
+            Directory.CreateDirectory(@"C:\BookBuddy\backend\Logs");
+
+            // Load environment variables from .env
             Env.Load();
 
             var builder = WebApplication.CreateBuilder(args);
 
-            // Configure Serilog using the configuration from the builder's context
+            // Configure Serilog
             builder.Host.UseSerilog((context, config) => {
                 config.ReadFrom.Configuration(context.Configuration);
             });
 
-            // Retrieve the configuration directly from the builder's Configuration property
             var configuration = builder.Configuration;
 
-            // Use the ConnectionStringHelper to get the connection string
+            // Get PostgreSQL connection string via helper
             var connectionString = ConnectionStringHelper.GetConnectionString(configuration);
 
-            // Add services to the container
-
-            // Employee services
+            // Register services (business logic + data access)
             builder.Services.AddTransient<ICRUD<Employee>, EmployeeControl>();
             builder.Services.AddTransient<ICRUDAccess<Employee>, EmployeeAccess>();
 
-            // Genre services
             builder.Services.AddTransient<ICRUD<Genre>, GenreControl>();
             builder.Services.AddTransient<ICRUDAccess<Genre>, GenreAccess>();
 
-            // Location services
             builder.Services.AddTransient<ICRUD<Location>, LocationControl>();
             builder.Services.AddTransient<ICRUDAccess<Location>, LocationAccess>();
 
-            // Book services
             builder.Services.AddTransient<IBookControl, BookControl>();
             builder.Services.AddTransient<IBookAccess, BookAccess>();
 
-            // User services
             builder.Services.AddTransient<IUserControl, UserControl>();
             builder.Services.AddTransient<IUserAccess, UserAccess>();
 
-            // Log services
-            builder.Services.AddTransient<ILogControl, LogControl>();
-            builder.Services.AddTransient<ILogAccess, LogAccess>();
-
-            // ReadingNote services
             builder.Services.AddScoped<IReadingNoteControl, ReadingNoteControl>();
             builder.Services.AddScoped<IReadingNoteAccess, ReadingNoteAccess>();
 
+            builder.Services.AddTransient<ILogControl, LogControl>();
+            builder.Services.AddTransient<ILogAccess, LogAccess>();
 
-            // Database connection service
+            // Register DB connection classes
             builder.Services.AddTransient(provider => new LibraryConnection(connectionString));
-
-            // Register LibraryConnection
             builder.Services.AddTransient<LibraryConnection>(provider => new LibraryConnection(connectionString));
-
-            // Register the generic connection with LibraryConnection as the type parameter
             builder.Services.AddTransient(typeof(IGenericConnection<LibraryConnection>), typeof(GenericConnection<LibraryConnection>));
 
-            // MVC Controllers with case-insensitive JSON binding
-            builder.Services.AddControllers()
-                .AddJsonOptions(options =>
-                {
-                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                });
-
-            // CORS
-            builder.Services.AddCors(options => {
-                options.AddPolicy("AllowAllOrigins",
-                    policy => {
-                        policy.AllowAnyOrigin()
-                              .AllowAnyMethod()
-                              .AllowAnyHeader();
-                    });
+            // Add Controllers + Case-insensitive JSON
+            builder.Services.AddControllers().AddJsonOptions(options => {
+                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
             });
 
-            // Swagger
+            // CORS (for frontend adgang)
+            builder.Services.AddCors(options => {
+                options.AddPolicy("AllowAllOrigins", policy => {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
+            // Swagger (til API-test)
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
@@ -111,10 +97,10 @@ namespace Book_REST_Service
                     };
                 });
 
-            // Build the application
+            // Build app
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline
+            // Middleware pipeline
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

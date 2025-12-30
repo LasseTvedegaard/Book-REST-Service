@@ -1,93 +1,95 @@
 ﻿using Dapper;
+using DataAccess.Context;
 using DataAccess.Interfaces;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
+namespace DataAccess
+{
+    public class GenreAccess : ICRUDAccess<Genre>
+    {
+        private readonly IConnection _connection;
+        private readonly ILogger<GenreAccess>? _logger;
 
-namespace DataAccess {
-    public class GenreAccess : ICRUDAccess<Genre> {
-
-        private readonly string? _connectionString;
-        private readonly ILogger<ICRUDAccess<Genre>>? _logger;
-
-        public GenreAccess(IConfiguration configuration, ILogger<ICRUDAccess<Genre>> logger = null) {
-            _connectionString = configuration.GetConnectionString("DbAccessConnection");
+        public GenreAccess(IGenericConnection<LibraryConnection> pgConnection, ILogger<GenreAccess>? logger = null)
+        {
+            _connection = pgConnection;
             _logger = logger;
         }
 
-        // Test
-        public GenreAccess(string connectionStringForTest) {
-            _connectionString = connectionStringForTest;
+        // Til testformål (fx unit tests med mock connection)
+        public GenreAccess(IConnection connection)
+        {
+            _connection = connection;
         }
 
-        public async Task<int> Create(Genre entity) {
-            int insertedGenreId = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"INSERT INTO Genre
-                            (genreName)
-                            OUTPUT INSERTED.genreId
-                            VALUES
-                            (@genreName)";
-                try {
-                    insertedGenreId = await con.ExecuteScalarAsync<int>(sql, entity);
-                } catch (Exception ex) {
-                    _logger?.LogError(ex.Message, ex);
-                    throw;
-                }
+        public async Task<int> Create(Genre entity)
+        {
+            const string sql = @"
+                INSERT INTO Genre (GenreName)
+                VALUES (@GenreName);
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+            try
+            {
+                using var db = _connection.GetConnection();
+                return await db.ExecuteScalarAsync<int>(sql, entity);
+            } catch (SqlException sqlEx)
+            {
+                _logger?.LogError(sqlEx, "SQL Server error in Create");
+                throw;
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in Create");
+                throw;
             }
-            return insertedGenreId;
         }
 
-        public async Task<bool> Delete(int id) {
-            int rowsAffected = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"DELETE FROM genre
-                            WHERE
-                            genreId = @id";
-                rowsAffected = await con.ExecuteAsync(sql, new { id });
-            }
+        public async Task<bool> Delete(int id)
+        {
+            const string sql = @"DELETE FROM Genre WHERE GenreId = @id";
+
+            using var db = _connection.GetConnection();
+            int rowsAffected = await db.ExecuteAsync(sql, new { id });
             return rowsAffected > 0;
         }
 
-        public Task<Genre> Get(int id) {
+        public Task<Genre> Get(int id)
+        {
             throw new NotImplementedException();
         }
 
-        public async Task<List<Genre>> GetAll() {
-            List<Genre>? foundGenre;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"SELECT genreId, genreName
-                            FROM Genre";
-                try {
-                    foundGenre = (await con.QueryAsync<Genre>(sql)).ToList();
-                } catch (Exception ex) {
-                    foundGenre = null;
-                    _logger?.LogError(ex, ex.Message);
-                }
+        public async Task<List<Genre>> GetAll()
+        {
+            const string sql = @"SELECT GenreId, GenreName FROM Genre";
+
+            using var db = _connection.GetConnection();
+            try
+            {
+                var genres = await db.QueryAsync<Genre>(sql);
+                return genres.ToList();
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "❌ Error in GetAll");
+                return new List<Genre>();
             }
-            return foundGenre;
         }
 
-        public async Task<bool> Update(int id, Genre entity) {
-            int rowsAffected = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"UPDATE genre
-                            SET
-                                genreName = @genreName
-                            WHERE
-                                genreId = @genreId";
-                rowsAffected = await con.ExecuteAsync(sql, entity);
-            }
+        public async Task<bool> Update(int id, Genre entity)
+        {
+            const string sql = @"
+                UPDATE Genre
+                SET GenreName = @GenreName
+                WHERE GenreId = @GenreId";
+
+            using var db = _connection.GetConnection();
+            int rowsAffected = await db.ExecuteAsync(sql, entity);
             return rowsAffected > 0;
         }
 
-        public Task<bool> DeleteAll() {
+        public Task<bool> DeleteAll()
+        {
             throw new NotImplementedException();
         }
     }

@@ -1,92 +1,101 @@
 ﻿using Dapper;
+using DataAccess.Context;
 using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
-namespace DataAccess {
-    public class LocationAccess : ICRUDAccess<Location> {
+namespace DataAccess
+{
+    public class LocationAccess : ICRUDAccess<Location>
+    {
+        private readonly IConnection _connection;
+        private readonly ILogger<LocationAccess>? _logger;
 
-        private readonly string? _connectionString;
-        private readonly ILogger<ICRUDAccess<Location>>? _logger;
-
-        public LocationAccess(IConfiguration configuration, ILogger<ICRUDAccess<Location>> logger = null) {
-            _connectionString = configuration.GetConnectionString("DbAccessConnection");
+        public LocationAccess(IGenericConnection<LibraryConnection> pgConnection, IConfiguration configuration, ILogger<LocationAccess> logger = null)
+        {
+            _connection = pgConnection;
             _logger = logger;
         }
 
-        // Test
-        public LocationAccess(string connectionForTest) {
-            _connectionString = connectionForTest;
-        }
-        public async Task<int> Create(Location entity) {
-            int insertedLocationId = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"INSERT INTO location
-                            (locationName)
-                            OUTPUT INSERTED.locationId
-                            VALUES
-                            (@locationName) ";
-                try {
-                    insertedLocationId = await con.ExecuteScalarAsync<int>(sql, entity);
-                } catch (Exception ex) {
-                    _logger?.LogError(ex.Message, ex);
-                    throw;
-                }
-            }
-            return insertedLocationId;
+        // For testing
+        public LocationAccess(IConnection connection)
+        {
+            _connection = connection;
         }
 
-        public async Task<bool> Delete(int id) {
-            int rowsAffected = -1;
-            using (SqlConnection con = new SqlConnection( _connectionString)) {
-                con.Open();
-                var sql = @"DELETE FROM location
-                            WHERE
-                            locationId = @id";
-                rowsAffected = await con.ExecuteAsync(sql, new { id });
+        public async Task<int> Create(Location entity)
+        {
+            const string sql = @"
+                INSERT INTO Location (LocationName)
+                VALUES (@LocationName);
+                SELECT CAST(SCOPE_IDENTITY() AS INT);";
+
+            try
+            {
+                using var db = _connection.GetConnection();
+                return await db.ExecuteScalarAsync<int>(sql, entity);
+            } catch (SqlException sqlEx)
+            {
+                _logger?.LogError(sqlEx, "SQL Server error in Create(Location)");
+                throw;
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Unhandled error in Create(Location)");
+                throw;
             }
+        }
+
+        public async Task<bool> Delete(int id)
+        {
+            const string sql = @"DELETE FROM Location WHERE LocationId = @id";
+
+            using var db = _connection.GetConnection();
+            var rowsAffected = await db.ExecuteAsync(sql, new { id });
             return rowsAffected > 0;
         }
 
-        public Task<Location> Get(int id) {
+        public Task<Location> Get(int id)
+        {
             throw new NotImplementedException();
         }
 
-        public async Task<List<Location>> GetAll() {
-            List<Location>? foundLocation;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"SELECT locationId, locationName
-                            FROM Location";
-                try {
-                    foundLocation = (await con.QueryAsync<Location>(sql)).ToList();
-                } catch (Exception ex) {
-                    foundLocation = null;
-                    _logger?.LogError(ex, ex.Message);
-                }
+        public async Task<List<Location>> GetAll()
+        {
+            const string sql = @"SELECT LocationId, LocationName FROM Location";
+
+            try
+            {
+                using var db = _connection.GetConnection();
+                var result = await db.QueryAsync<Location>(sql);
+                return result.ToList();
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in GetAll(Location)");
+                return new List<Location>();
             }
-            return foundLocation;
         }
 
+        public async Task<bool> Update(int id, Location entity)
+        {
+            const string sql = @"
+                UPDATE Location
+                SET LocationName = @LocationName
+                WHERE LocationId = @LocationId";
 
-        public async Task<bool> Update(int id, Location entity) {
-            int rowsAffected = -1;
-            using (SqlConnection con = new SqlConnection(_connectionString)) {
-                con.Open();
-                var sql = @"UPDATE location
-                            SET
-                                locationName = @locationName
-                            WHERE
-                                locationId = @locationId";
-                rowsAffected = await con.ExecuteAsync(sql, new { locationName = entity.LocationName, locationId = id });
-            }
+            using var db = _connection.GetConnection();
+            var rowsAffected = await db.ExecuteAsync(sql, new
+            {
+                entity.LocationName,
+                LocationId = id
+            });
+
             return rowsAffected > 0;
         }
 
-        public Task<bool> DeleteAll() {
+        public Task<bool> DeleteAll()
+        {
             throw new NotImplementedException();
         }
     }

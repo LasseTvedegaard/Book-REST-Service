@@ -1,11 +1,10 @@
-﻿using System.Data;
-using Npgsql;
+﻿using Microsoft.Data.SqlClient;  // Skift fra Npgsql
+using System.Data;
 
 namespace DataAccess.Context
 {
     public class Connection : IConnection
     {
-
         private readonly string _connectionString;
 
         public Connection(string connectionString)
@@ -15,7 +14,7 @@ namespace DataAccess.Context
 
         public IDbConnection GetConnection()
         {
-            var connection = new NpgsqlConnection(_connectionString);
+            var connection = new SqlConnection(_connectionString);  // Ændret fra NpgsqlConnection
             connection.Open();
             return connection;
         }

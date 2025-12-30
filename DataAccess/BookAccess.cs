@@ -4,72 +4,78 @@ using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
-using System.Data.SqlClient;
+using System.Net;
 
-// This class uses the Dapper Object-Relational Mapping (ORM) library to handle database operations for the Book entity. Dapper
-// simplifies the process of mapping database records to C# objects by allowing us to write native SQL queries and 
-// automatically mapping the result set to our defined models. Create, Read, Update, and fetching all records are implemented
-// using Dapper's methods like ExecuteScalarAsync and QueryAsync.
-
-namespace DataAccess {
-    public class BookAccess : IBookAccess {
-
+namespace DataAccess
+{
+    public class BookAccess : IBookAccess
+    {
         private IConnection _connectionString;
         private readonly ILogger<IBookAccess>? _logger;
 
-        public BookAccess(IGenericConnection<LibraryConnection> _mssqlConnection, IConfiguration configuration, ILogger<IBookAccess>? logger = null) {
-            _connectionString = _mssqlConnection;
+        public BookAccess(IGenericConnection<LibraryConnection> _pgConnection, IConfiguration configuration, ILogger<IBookAccess>? logger = null)
+        {
+            _connectionString = _pgConnection;
             _logger = logger;
         }
 
         // For Test
-        public BookAccess(string connectionStringForTest) {
-            //_connectionString = connectionStringForTest;
+        public BookAccess(string connectionStringForTest)
+        {
+            // Brug evt. mock IConnection til tests
         }
-        public async Task<int> Create(Book entity) {
+
+        public async Task<int> Create(Book entity)
+        {
             var insertedId = -1;
             using var db = _connectionString.GetConnection();
 
-            using (var transaction = db.BeginTransaction()) {
-                try {
+            using (var transaction = db.BeginTransaction())
+            {
+                try
+                {
                     // Insert to Book table
-                    var sqlBook = @"INSERT INTO Book
-                                (genreId,
-                                locationId,
-                                isbnNo,
-                                title,
-                                author,
-                                noOfPages,
-                                bookType,
-                                imageURL,
-                                status)
-                            OUTPUT INSERTED.BookId
-                            VALUES
-                                (@genreId,
-                                 @locationId,
-                                 @isbnNo,
-                                 @title,
-                                 @author,
-                                 @noOfPages,
-                                 @bookType,
-                                 @imageURL,
-                                 @status)";
+                    var sqlBook = @"
+                        INSERT INTO Book
+                        (
+                            GenreId,
+                            LocationId,
+                            IsbnNo,
+                            Title,
+                            Author,
+                            NoOfPages,
+                            BookType,
+                            ImageUrl,
+                            Status)
+                        VALUES
+                        (
+                            @GenreId,
+                            @LocationId,
+                            @IsbnNo,
+                            @Title,
+                            @Author,
+                            @NoOfPages,
+                            @BookType,
+                            @ImageUrl,
+                            @Status);
+                        SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
-
-                    insertedId = await db.ExecuteScalarAsync<int>(sqlBook, new {
-                        entity.Genre.GenreId,
-                        entity.Location.LocationId,
+                    insertedId = await db.ExecuteScalarAsync<int>(sqlBook, new
+                    {
+                        GenreId = entity.Genre.GenreId,
+                        LocationId = entity.Location.LocationId,
                         entity.IsbnNo,
                         entity.Title,
                         entity.Author,
                         entity.NoOfPages,
                         entity.BookType,
-                        entity.ImageURL,
+                        ImageUrl = entity.ImageURL,
                         entity.Status
                     }, transaction);
 
                     transaction.Commit();
-                } catch (Exception ex) {
+                } catch (Exception ex)
+                {
                     _logger?.LogError(ex.Message);
                     transaction.Rollback();
                     throw;
@@ -79,27 +85,28 @@ namespace DataAccess {
             return insertedId;
         }
 
-
-        public async Task<Book>? Get(int id) {
+        public async Task<Book>? Get(int id)
+        {
             using var db = _connectionString.GetConnection();
 
-            var bookQuery = @"SELECT
-                b.bookId, 
-                b.isbnNo,
-                b.title,
-                b.author,
-                b.noOfPages,
-                b.bookType,
-                b.imageURL,
-                b.status,              
-                b.genreId,
-                g.genreName,
-                b.locationId,               
-                l.locationName
-            FROM Book b
-            INNER JOIN Genre g ON b.genreId = g.genreId
-            LEFT JOIN Location l ON b.locationId = l.locationId
-            WHERE b.BookId = @bookId";
+            var bookQuery = @"
+                SELECT
+                    b.BookId, 
+                    b.IsbnNo,
+                    b.Title,
+                    b.Author,
+                    b.NoOfPages,
+                    b.BookType,
+                    b.ImageUrl,
+                    b.Status,              
+                    b.GenreId,
+                    g.GenreName,
+                    b.LocationId,               
+                    l.LocationName
+                FROM Book b
+                INNER JOIN Genre g ON b.GenreId = g.GenreId
+                LEFT JOIN Location l ON b.LocationId = l.LocationId
+                WHERE b.BookId = @bookId";
 
             var result = await db.QueryAsync<Book, Genre, Location, Book>(
                 bookQuery,
@@ -109,108 +116,90 @@ namespace DataAccess {
                     return book;
                 },
                 new { bookId = id },
-                splitOn: "Genreid, LocationName"  // Splitting columns for mapping
+                splitOn: "GenreName,LocationName"
             );
 
-            return result.FirstOrDefault();  // Return the first (or default) book from the result
+            return result.FirstOrDefault();
         }
 
-
-        // This method queries and returns all books from the 'books' database table.
-        public async Task<List<Book>> GetAll() {
-
-            // Initialize a new sqlConnection object to connect to the database
+        // This method queries and returns all books from the 'Book' database table.
+        public async Task<List<Book>> GetAll()
+        {
             using var db = _connectionString.GetConnection();
 
-            // Open an asynchronous connection to the database.
-
-
-            // Start a transaction in order to comply the ACID principles
-            using (var transaction = db.BeginTransaction()) {
-
-                // Initialize a list to store the retrieved books.
+            using (var transaction = db.BeginTransaction())
+            {
                 var books = new List<Book>();
 
-                // SQL query to join 'Book' with 'Genre' and 'Location' tables.
-                string bookQuery = @"SELECT
-                b.bookId, 
-                b.isbnNo,
-                b.title,
-                b.author,
-                b.noOfPages,
-                b.bookType,
-                b.imageURL,
-                b.status,              
-                b.genreId,
-                g.genreName,
-                b.locationId,               
-                l.locationName
-                FROM Book b
-                INNER JOIN Genre g ON b.genreId = g.genreId
-                LEFT JOIN Location l ON b.locationId = l.locationId";
+                string bookQuery = @"
+                    SELECT
+                        b.BookId, 
+                        b.IsbnNo,
+                        b.Title,
+                        b.Author,
+                        b.NoOfPages,
+                        b.BookType,
+                        b.ImageUrl,
+                        b.Status,              
+                        b.GenreId,
+                        g.GenreName,
+                        b.LocationId,               
+                        l.LocationName
+                    FROM Book b
+                    INNER JOIN Genre g ON b.GenreId = g.GenreId
+                    LEFT JOIN Location l ON b.LocationId = l.LocationId";
 
-                // Execute the SQL query and map the results to the 'Book' list.
-
-                books = (await db.QueryAsync<Book, Genre, Location, Book>(bookQuery,
+                books = (await db.QueryAsync<Book, Genre, Location, Book>(
+                    bookQuery,
                     (book, genre, location) => {
                         book.Genre = genre;
                         book.Location = location;
                         return book;
                     },
-
                     transaction: transaction,
+                    splitOn: "GenreName,LocationName"
+                )).ToList();
 
-                    // The 'splitOn' parameter specifies where to split the columns in the result set when mapping to C# objects.
-                    // In this case, columns before 'GenreId' map to 'Book', columns between 'GenreId' and 'LocationId' map to 'Genre',
-                    // and columns from 'LocationId' onwards map to 'Location'.
-                    splitOn: "GenreId,LocationId"))
-                .ToList();
-
-                // Commit the transaction.
                 transaction.Commit();
-
-                // Return list of books
                 return books;
             }
         }
 
-
-
         public async Task<bool> Update(int id, Book entity)
         {
             int rowsAffected = -1;
-            entity.BookId = id; // Sørger for at ID'et er korrekt sat til den bog, der skal opdateres
+            entity.BookId = id;
 
             using var db = _connectionString.GetConnection();
             var updateSql = @"
-        UPDATE Book 
-        SET 
-            isbnNo = @isbnNo, 
-            title = @title, 
-            author = @author,
-            noOfPages = @noOfPages,
-            bookType = @bookType,
-            imageURL = @imageURL,
-            status = @status, 
-            genreId = @genreId,
-            locationId = @locationId
-        WHERE 
-            bookId = @bookId";
+                UPDATE Book 
+                SET 
+                    IsbnNo = @IsbnNo, 
+                    Title = @Title, 
+                    Author = @Author,
+                    NoOfPages = @NoOfPages,
+                    BookType = @BookType,
+                    ImageUrl = @ImageUrl,
+                    Status = @Status, 
+                    GenreId = @GenreId,
+                    LocationId = @LocationId
+                WHERE 
+                    BookId = @BookId";
 
             try
             {
                 rowsAffected = await db.ExecuteAsync(updateSql, new
                 {
-                    isbnNo = entity.IsbnNo,
-                    title = entity.Title,
-                    author = entity.Author,
-                    noOfPages = entity.NoOfPages,
-                    bookType = entity.BookType,
-                    imageURL = entity.ImageURL,
-                    status = entity.Status,
-                    genreId = (entity.Genre != null && entity.Genre.GenreId > 0) ? (int?)entity.Genre.GenreId : null,
-                    locationId = (entity.Location != null && entity.Location.LocationId > 0) ? (int?)entity.Location.LocationId : null,
-                    bookId = entity.BookId,
+                    entity.IsbnNo,
+                    entity.Title,
+                    entity.Author,
+                    entity.NoOfPages,
+                    entity.BookType,
+                    ImageUrl = entity.ImageURL,
+                    entity.Status,
+                    GenreId = (entity.Genre?.GenreId > 0) ? (int?)entity.Genre.GenreId : null,
+                    LocationId = (entity.Location?.LocationId > 0) ? (int?)entity.Location.LocationId : null,
+                    BookId = entity.BookId
                 });
 
                 if (rowsAffected > 0)
@@ -223,65 +212,61 @@ namespace DataAccess {
             } catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error updating book with ID {BookId}", entity.BookId);
-                rowsAffected = 0;  // Vi kan sikre, at rowsAffected er sat til 0 ved fejl
+                rowsAffected = 0;
             }
 
-            return rowsAffected > 0;  // Returner true, hvis der blev opdateret en række
+            return rowsAffected > 0;
         }
 
-
         public async Task<List<Book>> GetByStatus(string status)
-{
-    using var db = _connectionString.GetConnection();
-    using var transaction = db.BeginTransaction();
+        {
+            using var db = _connectionString.GetConnection();
+            using var transaction = db.BeginTransaction();
 
-    string sql = @"
-        SELECT
-            b.bookId, 
-            b.isbnNo,
-            b.title,
-            b.author,
-            b.noOfPages,
-            b.bookType,
-            b.imageURL,
-            b.status,              
-            b.genreId,
-            g.genreName,
-            b.locationId,               
-            l.locationName
-        FROM Book b
-        INNER JOIN Genre g ON b.genreId = g.genreId
-        LEFT JOIN Location l ON b.locationId = l.locationId
-        WHERE LOWER(b.status) = LOWER(@status)";
+            string sql = @"
+                SELECT
+                    b.BookId, 
+                    b.IsbnNo,
+                    b.Title,
+                    b.Author,
+                    b.NoOfPages,
+                    b.BookType,
+                    b.ImageUrl,
+                    b.Status,              
+                    b.GenreId,
+                    g.GenreName,
+                    b.LocationId,               
+                    l.LocationName
+                FROM Book b
+                INNER JOIN Genre g ON b.GenreId = g.GenreId
+                LEFT JOIN Location l ON b.LocationId = l.LocationId
+                WHERE LOWER(b.Status) = LOWER(@status)";
 
-    var books = (await db.QueryAsync<Book, Genre, Location, Book>(
-        sql,
-        (book, genre, location) => {
-            book.Genre = genre;
-            book.Location = location;
-            return book;
-        },
-        new { status },
-        transaction: transaction,
-        splitOn: "GenreId,LocationId"
-    )).ToList();
+            var books = (await db.QueryAsync<Book, Genre, Location, Book>(
+                sql,
+                (book, genre, location) => {
+                    book.Genre = genre;
+                    book.Location = location;
+                    return book;
+                },
+                new { status },
+                transaction: transaction,
+                splitOn: "GenreName,LocationName"
+            )).ToList();
 
-    transaction.Commit();
-    return books;
-}
+            transaction.Commit();
+            return books;
+        }
 
         public async Task<bool> UpdateStatus(int bookId, string status)
         {
             using var db = _connectionString.GetConnection();
 
-            string sql = "UPDATE Book SET status = @status WHERE bookId = @bookId";
+            string sql = @"UPDATE Book SET Status = @status WHERE BookId = @bookId";
 
             var rowsAffected = await db.ExecuteAsync(sql, new { status, bookId });
 
             return rowsAffected > 0;
         }
-
-
-
     }
 }

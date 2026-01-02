@@ -1,4 +1,4 @@
-using Book_REST_Service.Controllers;
+﻿using Book_REST_Service.Controllers;
 using BusinessLogic;
 using BusinessLogic.Interfaces;
 using DataAccess;
@@ -7,7 +7,6 @@ using DataAccess.Helpers;
 using DataAccess.Interfaces;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Model;
@@ -20,25 +19,29 @@ namespace Book_REST_Service
     {
         public static void Main(string[] args)
         {
-            // S�rg for at log-mappen eksisterer, f�r Serilog starter
-            Directory.CreateDirectory(@"C:\BookBuddy\backend\Logs");
-
-            // Load environment variables from .env
-            Env.Load();
-
             var builder = WebApplication.CreateBuilder(args);
 
-            // Configure Serilog
-            builder.Host.UseSerilog((context, config) => {
+            // .env KUN lokalt
+            if (builder.Environment.IsDevelopment())
+            {
+                Env.Load();
+            }
+
+            // Serilog
+            builder.Host.UseSerilog((context, config) =>
+            {
                 config.ReadFrom.Configuration(context.Configuration);
             });
 
             var configuration = builder.Configuration;
 
-            // Get PostgreSQL connection string via helper
+            // DB connection
             var connectionString = ConnectionStringHelper.GetConnectionString(configuration);
 
-            // Register services (business logic + data access)
+            // -----------------------------
+            // Dependency Injection
+            // -----------------------------
+
             builder.Services.AddTransient<ICRUD<Employee>, EmployeeControl>();
             builder.Services.AddTransient<ICRUDAccess<Employee>, EmployeeAccess>();
 
@@ -60,40 +63,77 @@ namespace Book_REST_Service
             builder.Services.AddTransient<ILogControl, LogControl>();
             builder.Services.AddTransient<ILogAccess, LogAccess>();
 
-            // Register DB connection classes
             builder.Services.AddTransient(provider => new LibraryConnection(connectionString));
-            builder.Services.AddTransient<LibraryConnection>(provider => new LibraryConnection(connectionString));
             builder.Services.AddTransient(typeof(IGenericConnection<LibraryConnection>), typeof(GenericConnection<LibraryConnection>));
 
-            // Add Controllers + Case-insensitive JSON
-            builder.Services.AddControllers().AddJsonOptions(options => {
-                options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-            });
+            builder.Services.AddControllers()
+                .AddJsonOptions(o =>
+                {
+                    o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                });
 
-            // CORS (for frontend adgang)
-            builder.Services.AddCors(options => {
-                options.AddPolicy("AllowAllOrigins", policy => {
-                    policy.AllowAnyOrigin()
-                          .AllowAnyMethod()
-                          .AllowAnyHeader();
+            builder.Services.AddCors(o =>
+            {
+                o.AddPolicy("AllowAllOrigins", p =>
+                {
+                    p.AllowAnyOrigin()
+                     .AllowAnyMethod()
+                     .AllowAnyHeader();
                 });
             });
 
-            // Swagger (med JWT support)
+            // -----------------------------
+            // JWT Authentication
+            // -----------------------------
+
+            var jwtKey = configuration["Jwt:Key"];
+            var jwtIssuer = configuration["Jwt:Issuer"];
+            var jwtAudience = configuration["Jwt:Audience"];
+
+            if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32)
+            {
+                throw new Exception("JWT Key mangler eller er for kort (min. 32 tegn).");
+            }
+
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtIssuer,
+                        ValidAudience = jwtAudience,
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(jwtKey)
+                        )
+                    };
+                });
+
+            // -----------------------------
+            // Swagger  ✅ RETTET HER
+            // -----------------------------
+
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "Book API", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "BookBuddy API",
+                    Version = "v1"
+                });
 
-                // JWT auth konfiguration i Swagger
+                // ✅ VIGTIG RETTELSE
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
-                    Type = SecuritySchemeType.ApiKey,
+                    Type = SecuritySchemeType.Http,   // ⬅️ VAR ApiKey
                     Scheme = "Bearer",
                     BearerFormat = "JWT",
                     In = ParameterLocation.Header,
-                    Description = "Skriv 'Bearer {token}' herunder."
+                    Description = "Enter JWT token (without 'Bearer ')"
                 });
 
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -112,34 +152,18 @@ namespace Book_REST_Service
                 });
             });
 
-            // JWT Authentication
-            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(options =>
-                {
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidateIssuer = true,
-                        ValidateAudience = true,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = configuration["Jwt:Issuer"],
-                        ValidAudience = configuration["Jwt:Audience"],
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]))
-                    };
-                });
-
-            // Build app
             var app = builder.Build();
 
-            // Middleware pipeline
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+            // -----------------------------
+            // Middleware
+            // -----------------------------
+
+            app.UseSwagger();
+            app.UseSwaggerUI();
 
             app.UseHttpsRedirection();
             app.UseSerilogRequestLogging();
+
             app.UseRouting();
             app.UseCors("AllowAllOrigins");
 

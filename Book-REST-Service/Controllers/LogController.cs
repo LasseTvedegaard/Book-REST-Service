@@ -1,88 +1,122 @@
 ﻿using BusinessLogic.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Book_REST_Service.Helpers;
+using DTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Model;
-using DTOs;
 
 namespace Book_REST_Service.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
     public class LogController : ControllerBase
     {
         private readonly ILogControl _logControl;
-        private readonly ILogger<LogController>? _logger;
+        private readonly ILogger<LogController> _logger;
 
-        public LogController(ILogControl logControl, ILogger<LogController>? logger = null)
+        public LogController(ILogControl logControl, ILogger<LogController> logger)
         {
             _logControl = logControl;
             _logger = logger;
         }
 
-        // ✅ POST api/log
+        // -----------------------------
+        // CREATE LOG (JWT USER)
+        // -----------------------------
         [HttpPost]
         public async Task<IActionResult> CreateLog([FromBody] LogCreateDto logDto)
         {
-            if (logDto == null) return BadRequest();
+            if (logDto == null)
+                return BadRequest();
 
-            var logToCreate = new Log
+            var userId = User.GetUserId();
+
+            var log = new Log
             {
                 BookId = logDto.BookId,
-                UserId = logDto.UserId,
+                UserId = userId,
                 CurrentPage = logDto.CurrentPage,
                 NoOfPages = logDto.NoOfPages,
                 ListType = logDto.ListType
             };
 
-            int returnCode = await _logControl.Create(logToCreate, logDto.ListType);
+            int result = await _logControl.Create(log, logDto.ListType);
 
-            return returnCode switch
+            return result switch
             {
-                >= 0 => CreatedAtAction("Get", new { id = returnCode, listType = logDto.ListType }, logToCreate),
+                > 0 => CreatedAtAction(nameof(GetById), new { id = result, listType = logDto.ListType }, log),
                 -500 => StatusCode(500),
                 _ => BadRequest()
             };
         }
 
-        // ✅ GET api/log/5?listType=reading
+        // -----------------------------
+        // GET LOG BY ID
+        // -----------------------------
         [HttpGet("{id}")]
-        public async Task<ActionResult<Log>> Get(int id, [FromQuery] string listType)
+        public async Task<ActionResult<Log>> GetById(int id, [FromQuery] string listType)
         {
-            var foundLog = await _logControl.GetLogById(id, listType);
-            return foundLog != null ? Ok(foundLog) : NoContent();
+            var log = await _logControl.GetLogById(id, listType);
+            return log == null ? NoContent() : Ok(log);
         }
 
-
-        // ✅ GET api/log/user/{userId}/all?listType=reading
-        [HttpGet("user/{userId}/all")]
-        public async Task<ActionResult<IEnumerable<Log>>> GetLogsByUser(Guid userId, [FromQuery] string listType)
+        // -----------------------------
+        // GET ALL LOGS FOR CURRENT USER
+        // -----------------------------
+        [HttpGet("me/all")]
+        public async Task<IActionResult> GetMyLogs([FromQuery] string listType)
         {
-            var logs = await _logControl.GetLogsByUser(userId, listType);
-            return (logs == null || !logs.Any()) ? NoContent() : Ok(logs);
+            var userId = User.GetUserId();
+
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                return BadRequest("Invalid user ID format.");
+            }
+
+            var logs = await _logControl.GetLogsByUser(userGuid, listType);
+
+            return logs == null || !logs.Any()
+                ? NoContent()
+                : Ok(logs);
         }
 
-        // ✅ GET api/log/user/{userId}/latest?listType=reading
-        [HttpGet("user/{userId}/latest")]
-        public async Task<ActionResult<IEnumerable<Log>>> GetLatestLogs(Guid userId, [FromQuery] string listType)
+        // -----------------------------
+        // GET LATEST LOGS FOR CURRENT USER
+        // -----------------------------
+        [HttpGet("me/latest")]
+        public async Task<IActionResult> GetMyLatestLogs([FromQuery] string listType)
         {
-            var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
-            return (logs == null || !logs.Any()) ? NoContent() : Ok(logs);
+            var userId = User.GetUserId();
+
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                return BadRequest("Invalid user ID format.");
+            }
+
+            var logs = await _logControl.GetLatestLogsByUserAndListType(userGuid, listType);
+
+            return logs == null || !logs.Any()
+                ? NoContent()
+                : Ok(logs);
         }
 
-        [HttpGet("user/{userId}/history")]
-        public async Task<IActionResult> GetAllLogsForUser(string userId)
+        // -----------------------------
+        // GET LOG HISTORY (CURRENT USER)
+        // -----------------------------
+        [HttpGet("me/history")]
+        public async Task<IActionResult> GetMyHistory()
         {
             try
             {
-                var logs = await _logControl.GetAllLogs(userId); // ✅ Brug _logControl
-
+                var userId = User.GetUserId();
+                var logs = await _logControl.GetAllLogs(userId);
                 return Ok(logs);
             } catch (Exception ex)
             {
-                _logger?.LogError($"Fejl ved hentning af logs for bruger {userId}: {ex.Message}");
-                return StatusCode(500, "Der opstod en fejl ved hentning af læselogs.");
+                _logger.LogError(ex, "Error fetching log history");
+                return StatusCode(500, "Failed to fetch log history");
             }
         }
-
     }
 }

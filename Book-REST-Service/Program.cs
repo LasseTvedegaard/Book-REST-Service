@@ -85,14 +85,14 @@ builder.Services.AddCors(o =>
     o.AddPolicy("CorsPolicy", p =>
     {
         p.WithOrigins(
-            "http://localhost:3000",
-            "https://bookbuddy.website"
+            "https://bookbuddy.website",
+            "http://localhost:3000"
         )
         .AllowAnyMethod()
-        .AllowAnyHeader()
-        .AllowCredentials();
+        .AllowAnyHeader();
     });
 });
+
 
 
 // -----------------------------

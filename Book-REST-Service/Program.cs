@@ -66,19 +66,30 @@ namespace Book_REST_Service
             builder.Services.AddTransient(provider => new LibraryConnection(connectionString));
             builder.Services.AddTransient(typeof(IGenericConnection<LibraryConnection>), typeof(GenericConnection<LibraryConnection>));
 
+            // 🔑 NY: RefreshTokenAccess (Dapper)
+            builder.Services.AddScoped<RefreshTokenAccess>();
+
             builder.Services.AddControllers()
                 .AddJsonOptions(o =>
                 {
                     o.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                 });
 
+            // -----------------------------
+            // CORS (KRITISK for refresh tokens)
+            // -----------------------------
+
             builder.Services.AddCors(o =>
             {
-                o.AddPolicy("AllowAllOrigins", p =>
+                o.AddPolicy("CorsPolicy", p =>
                 {
-                    p.AllowAnyOrigin()
-                     .AllowAnyMethod()
-                     .AllowAnyHeader();
+                    p.WithOrigins(
+                        "http://localhost:3000",
+                        "https://dit-frontend-domæne.azurewebsites.net"
+                    )
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                    .AllowCredentials();
                 });
             });
 
@@ -113,7 +124,7 @@ namespace Book_REST_Service
                 });
 
             // -----------------------------
-            // Swagger  ✅ RETTET HER
+            // Swagger (KORREKT)
             // -----------------------------
 
             builder.Services.AddEndpointsApiExplorer();
@@ -125,11 +136,10 @@ namespace Book_REST_Service
                     Version = "v1"
                 });
 
-                // ✅ VIGTIG RETTELSE
                 c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
-                    Type = SecuritySchemeType.Http,   // ⬅️ VAR ApiKey
+                    Type = SecuritySchemeType.Http,
                     Scheme = "Bearer",
                     BearerFormat = "JWT",
                     In = ParameterLocation.Header,
@@ -165,7 +175,7 @@ namespace Book_REST_Service
             app.UseSerilogRequestLogging();
 
             app.UseRouting();
-            app.UseCors("AllowAllOrigins");
+            app.UseCors("CorsPolicy");
 
             app.UseAuthentication();
             app.UseAuthorization();

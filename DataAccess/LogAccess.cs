@@ -35,7 +35,19 @@ namespace DataAccess
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
             using var db = _connection.GetConnection();
-            return await db.ExecuteScalarAsync<int>(sql, entity);
+
+            // Guid → string for NVARCHAR column
+            var parameters = new
+            {
+                entity.BookId,
+                UserId = entity.UserId.ToString(),
+                entity.CurrentPage,
+                entity.NoOfPages,
+                entity.ListType,
+                entity.CreatedAt
+            };
+
+            return await db.ExecuteScalarAsync<int>(sql, parameters);
         }
 
         // -----------------------------
@@ -46,28 +58,43 @@ namespace DataAccess
             const string sql = @"
                 SELECT *
                 FROM Log
-                WHERE logId = @logId AND listType = @listType";
+                WHERE logId = @logId
+                  AND listType = @listType";
 
             using var db = _connection.GetConnection();
-            return await db.QuerySingleOrDefaultAsync<Log>(sql, new { logId, listType });
+
+            return await db.QuerySingleOrDefaultAsync<Log>(
+                sql,
+                new { logId, listType }
+            );
         }
 
         // -----------------------------
-        // GET BY USER
+        // GET LOGS BY USER + LIST TYPE
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType)
         {
             const string sql = @"
                 SELECT *
                 FROM Log
-                WHERE userId = @userId AND listType = @listType";
+                WHERE userId = @userId
+                  AND listType = @listType
+                ORDER BY createdAt DESC";
 
             using var db = _connection.GetConnection();
-            return await db.QueryAsync<Log>(sql, new { userId, listType });
+
+            return await db.QueryAsync<Log>(
+                sql,
+                new
+                {
+                    userId = userId.ToString(), // 🔑 vigtig
+                    listType
+                }
+            );
         }
 
         // -----------------------------
-        // GET LATEST PER BOOK
+        // GET LATEST LOG PER BOOK
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType)
         {
@@ -79,16 +106,26 @@ namespace DataAccess
                   AND l.logId IN (
                       SELECT MAX(logId)
                       FROM Log
-                      WHERE userId = @userId AND listType = @listType
+                      WHERE userId = @userId
+                        AND listType = @listType
                       GROUP BY bookId
-                  )";
+                  )
+                ORDER BY l.createdAt DESC";
 
             using var db = _connection.GetConnection();
-            return await db.QueryAsync<Log>(sql, new { userId, listType });
+
+            return await db.QueryAsync<Log>(
+                sql,
+                new
+                {
+                    userId = userId.ToString(), // 🔑 vigtig
+                    listType
+                }
+            );
         }
 
         // -----------------------------
-        // GET HISTORY
+        // GET FULL HISTORY (USER)
         // -----------------------------
         public async Task<List<Log>> GetAllLogs(Guid userId)
         {
@@ -96,10 +133,19 @@ namespace DataAccess
                 SELECT *
                 FROM Log
                 WHERE userId = @userId
-                ORDER BY createdAt";
+                ORDER BY createdAt DESC";
 
             using var db = _connection.GetConnection();
-            return (await db.QueryAsync<Log>(sql, new { userId })).ToList();
+
+            var logs = await db.QueryAsync<Log>(
+                sql,
+                new
+                {
+                    userId = userId.ToString() // 🔑 vigtig
+                }
+            );
+
+            return logs.ToList();
         }
     }
 }

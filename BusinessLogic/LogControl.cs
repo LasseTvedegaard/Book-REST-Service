@@ -16,39 +16,45 @@ namespace BusinessLogic
             _logAccess = logAccess;
         }
 
+        // -----------------------------
+        // CREATE
+        // -----------------------------
         public async Task<int> Create(Log entity, string listType)
         {
-            entity.ListType = listType; // 👈 tilføj listType til objektet her
-            return await _logAccess.Create(entity); // 👈 kun ét argument nu
+            entity.ListType = listType;
+            return await _logAccess.Create(entity);
         }
 
-
+        // -----------------------------
+        // GET BY ID
+        // -----------------------------
         public async Task<Log> GetLogById(int logId, string listType)
         {
             return await _logAccess.GetLogById(logId, listType);
         }
 
-        public Task<List<Log>> GetLogsByUserId(string userId)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        // ✅ Her er den nye metode - korrekt placeret inde i klassen
+        // -----------------------------
+        // GET LOGS BY USER + LIST TYPE
+        // -----------------------------
         public async Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType)
         {
             return await _logAccess.GetLogsByUser(userId, listType);
         }
+
+        // -----------------------------
+        // GET LATEST LOGS
+        // -----------------------------
         public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType)
         {
             return await _logAccess.GetLatestLogsByUserAndListType(userId, listType);
         }
+
+        // -----------------------------
+        // GET ALL LOGS (HISTORY)
+        // -----------------------------
         public async Task<List<Log>> GetAllLogs(Guid userId)
         {
             return await _logAccess.GetAllLogs(userId);
         }
-
-
-
     }
 }

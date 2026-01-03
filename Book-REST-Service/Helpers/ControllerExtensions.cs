@@ -6,7 +6,9 @@ namespace Book_REST_Service.Helpers
     {
         public static Guid GetUserId(this ClaimsPrincipal user)
         {
-            var claim = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            var claim =
+                user.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? user.FindFirstValue("sub");
 
             if (string.IsNullOrWhiteSpace(claim))
                 throw new UnauthorizedAccessException("UserId claim missing");

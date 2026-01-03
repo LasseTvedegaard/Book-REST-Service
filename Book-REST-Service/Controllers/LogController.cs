@@ -30,35 +30,38 @@ namespace Book_REST_Service.Controllers
             if (logDto == null)
                 return BadRequest();
 
-            var userId = User.GetUserId();
-
-            var log = new Log
+            try
             {
-                BookId = logDto.BookId,
-                UserId = userId,
-                CurrentPage = logDto.CurrentPage,
-                NoOfPages = logDto.NoOfPages,
-                ListType = logDto.ListType
-            };
+                Guid userId = User.GetUserId();
 
-            int result = await _logControl.Create(log, logDto.ListType);
+                var log = new Log
+                {
+                    BookId = logDto.BookId,
+                    UserId = userId,
+                    CurrentPage = logDto.CurrentPage,
+                    NoOfPages = logDto.NoOfPages,
+                    ListType = logDto.ListType
+                };
 
-            return result switch
+                int result = await _logControl.Create(log, logDto.ListType);
+
+                return result > 0
+                    ? CreatedAtAction(nameof(GetById), new { id = result, listType = logDto.ListType }, log)
+                    : StatusCode(500);
+            } catch (UnauthorizedAccessException)
             {
-                > 0 => CreatedAtAction(nameof(GetById), new { id = result, listType = logDto.ListType }, log),
-                -500 => StatusCode(500),
-                _ => BadRequest()
-            };
+                return Unauthorized();
+            }
         }
 
         // -----------------------------
         // GET LOG BY ID
         // -----------------------------
         [HttpGet("{id}")]
-        public async Task<ActionResult<Log>> GetById(int id, [FromQuery] string listType)
+        public async Task<IActionResult> GetById(int id, [FromQuery] string listType)
         {
             var log = await _logControl.GetLogById(id, listType);
-            return log == null ? NoContent() : Ok(log);
+            return log == null ? NotFound() : Ok(log);
         }
 
         // -----------------------------
@@ -67,13 +70,15 @@ namespace Book_REST_Service.Controllers
         [HttpGet("me/all")]
         public async Task<IActionResult> GetMyLogs([FromQuery] string listType)
         {
-            var userId = User.GetUserId();
-
-            var logs = await _logControl.GetLogsByUser(userId, listType);
-
-            return logs == null || !logs.Any()
-                ? NoContent()
-                : Ok(logs);
+            try
+            {
+                Guid userId = User.GetUserId();
+                var logs = await _logControl.GetLogsByUser(userId, listType);
+                return Ok(logs ?? new List<Log>());
+            } catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
+            }
         }
 
         // -----------------------------
@@ -82,26 +87,35 @@ namespace Book_REST_Service.Controllers
         [HttpGet("me/latest")]
         public async Task<IActionResult> GetMyLatestLogs([FromQuery] string listType)
         {
-            var userId = User.GetUserId();
-
-            var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
-
-            return logs == null || !logs.Any()
-                ? NoContent()
-                : Ok(logs);
+            try
+            {
+                Guid userId = User.GetUserId();
+                var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
+                return Ok(logs ?? new List<Log>());
+            } catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
+            } catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching latest logs");
+                return StatusCode(500, "Failed to fetch latest logs");
+            }
         }
 
         // -----------------------------
-        // GET LOG HISTORY (CURRENT USER)
+        // GET LOG HISTORY
         // -----------------------------
         [HttpGet("me/history")]
         public async Task<IActionResult> GetMyHistory()
         {
             try
             {
-                var userId = User.GetUserId();
+                Guid userId = User.GetUserId();
                 var logs = await _logControl.GetAllLogs(userId);
-                return Ok(logs);
+                return Ok(logs ?? new List<Log>());
+            } catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
             } catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching log history");

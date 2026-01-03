@@ -5,6 +5,7 @@ using DataAccess.Context;
 using DataAccess.Helpers;
 using DataAccess.Interfaces;
 using DotNetEnv;
+using Book_REST_Service.Helpers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -55,6 +56,9 @@ builder.Services.AddScoped<IReadingNoteAccess, ReadingNoteAccess>();
 
 builder.Services.AddTransient<ILogControl, LogControl>();
 builder.Services.AddTransient<ILogAccess, LogAccess>();
+
+builder.Services.AddScoped<JwtTokenService>();
+
 
 // DB (Dapper)
 builder.Services.AddScoped(provider => new LibraryConnection(connectionString));

@@ -32,12 +32,13 @@ namespace Book_REST_Service.Controllers
 
             try
             {
-                Guid userId = User.GetUserId();
+                // 🔑 Guid → string (ENESTE STED)
+                var userId = User.GetUserId().ToString();
 
                 var log = new Log
                 {
                     BookId = logDto.BookId,
-                    UserId = userId,
+                    UserId = userId, // ✅ string
                     CurrentPage = logDto.CurrentPage,
                     NoOfPages = logDto.NoOfPages,
                     ListType = logDto.ListType
@@ -72,7 +73,8 @@ namespace Book_REST_Service.Controllers
         {
             try
             {
-                Guid userId = User.GetUserId();
+                var userId = User.GetUserId().ToString(); // ✅
+
                 var logs = await _logControl.GetLogsByUser(userId, listType);
                 return Ok(logs ?? new List<Log>());
             } catch (UnauthorizedAccessException)
@@ -89,8 +91,11 @@ namespace Book_REST_Service.Controllers
         {
             try
             {
-                Guid userId = User.GetUserId();
-                var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
+                var userId = User.GetUserId().ToString(); // ✅
+
+                var logs = await _logControl
+                    .GetLatestLogsByUserAndListType(userId, listType);
+
                 return Ok(logs ?? new List<Log>());
             } catch (UnauthorizedAccessException)
             {
@@ -110,7 +115,8 @@ namespace Book_REST_Service.Controllers
         {
             try
             {
-                Guid userId = User.GetUserId();
+                var userId = User.GetUserId().ToString(); // ✅
+
                 var logs = await _logControl.GetAllLogs(userId);
                 return Ok(logs ?? new List<Log>());
             } catch (UnauthorizedAccessException)

@@ -36,18 +36,7 @@ namespace DataAccess
 
             using var db = _connection.GetConnection();
 
-            // Guid → string for NVARCHAR column
-            var parameters = new
-            {
-                entity.BookId,
-                UserId = entity.UserId.ToString(),
-                entity.CurrentPage,
-                entity.NoOfPages,
-                entity.ListType,
-                entity.CreatedAt
-            };
-
-            return await db.ExecuteScalarAsync<int>(sql, parameters);
+            return await db.ExecuteScalarAsync<int>(sql, entity);
         }
 
         // -----------------------------
@@ -72,7 +61,7 @@ namespace DataAccess
         // -----------------------------
         // GET LOGS BY USER + LIST TYPE
         // -----------------------------
-        public async Task<IEnumerable<Log>> GetLogsByUser(Guid userId, string listType)
+        public async Task<IEnumerable<Log>> GetLogsByUser(string userId, string listType)
         {
             const string sql = @"
                 SELECT *
@@ -85,18 +74,14 @@ namespace DataAccess
 
             return await db.QueryAsync<Log>(
                 sql,
-                new
-                {
-                    userId = userId.ToString(), // 🔑 vigtig
-                    listType
-                }
+                new { userId, listType }
             );
         }
 
         // -----------------------------
         // GET LATEST LOG PER BOOK
         // -----------------------------
-        public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(Guid userId, string listType)
+        public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(string userId, string listType)
         {
             const string sql = @"
                 SELECT *
@@ -116,18 +101,14 @@ namespace DataAccess
 
             return await db.QueryAsync<Log>(
                 sql,
-                new
-                {
-                    userId = userId.ToString(), // 🔑 vigtig
-                    listType
-                }
+                new { userId, listType }
             );
         }
 
         // -----------------------------
         // GET FULL HISTORY (USER)
         // -----------------------------
-        public async Task<List<Log>> GetAllLogs(Guid userId)
+        public async Task<List<Log>> GetAllLogs(string userId)
         {
             const string sql = @"
                 SELECT *
@@ -139,10 +120,7 @@ namespace DataAccess
 
             var logs = await db.QueryAsync<Log>(
                 sql,
-                new
-                {
-                    userId = userId.ToString() // 🔑 vigtig
-                }
+                new { userId }
             );
 
             return logs.ToList();

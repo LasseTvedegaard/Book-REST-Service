@@ -156,22 +156,6 @@ namespace Book_REST_Service.Controllers
             return StatusCode(500, "Failed to update book status.");
         }
 
-        [HttpPut("{id}/status")]
-        [Authorize]
-        public async Task<IActionResult> UpdateBookStatusPut(
-    int id,
-    [FromBody] UpdateBookStatusDto dto)
-        {
-            if (string.IsNullOrWhiteSpace(dto.Status))
-                return BadRequest("Status is required");
-
-            var success = await _bookControl.UpdateStatus(id, dto.Status);
-
-            if (!success)
-                return NotFound($"Book with id {id} not found");
-
-            return NoContent(); // 204
-        }
 
 
     }

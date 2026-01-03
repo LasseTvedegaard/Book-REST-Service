@@ -100,9 +100,17 @@ namespace BusinessLogic
             if (string.IsNullOrWhiteSpace(status))
                 return false;
 
-            return await _bookAccess.UpdateStatus(id, status);
-        }
+            // Hent den eksisterende bog
+            var existingBook = await _bookAccess.Get(id);
+            if (existingBook == null)
+                return false;
 
+            // Opdater status
+            existingBook.Status = status;
+
+            // Gem opdateringen
+            return await _bookAccess.Update(id, existingBook);
+        }
 
     }
 }

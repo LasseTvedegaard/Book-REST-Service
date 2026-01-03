@@ -82,13 +82,14 @@ builder.Services.AddCors(o =>
     {
         p.WithOrigins(
             "http://localhost:3000",
-            "https://dit-frontend-domæne.azurewebsites.net"
+            "https://bookbuddy.website"
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
         .AllowCredentials();
     });
 });
+
 
 // -----------------------------
 // JWT

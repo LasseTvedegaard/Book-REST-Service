@@ -43,10 +43,11 @@ namespace BusinessLogic
         {
             return await _logAccess.GetLatestLogsByUserAndListType(userId, listType);
         }
-        public async Task<List<Log>> GetAllLogs(string userId)
+        public async Task<List<Log>> GetAllLogs(Guid userId)
         {
             return await _logAccess.GetAllLogs(userId);
         }
+
 
 
     }

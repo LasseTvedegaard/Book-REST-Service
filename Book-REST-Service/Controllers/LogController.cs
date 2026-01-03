@@ -69,12 +69,7 @@ namespace Book_REST_Service.Controllers
         {
             var userId = User.GetUserId();
 
-            if (!Guid.TryParse(userId, out var userGuid))
-            {
-                return BadRequest("Invalid user ID format.");
-            }
-
-            var logs = await _logControl.GetLogsByUser(userGuid, listType);
+            var logs = await _logControl.GetLogsByUser(userId, listType);
 
             return logs == null || !logs.Any()
                 ? NoContent()
@@ -89,12 +84,7 @@ namespace Book_REST_Service.Controllers
         {
             var userId = User.GetUserId();
 
-            if (!Guid.TryParse(userId, out var userGuid))
-            {
-                return BadRequest("Invalid user ID format.");
-            }
-
-            var logs = await _logControl.GetLatestLogsByUserAndListType(userGuid, listType);
+            var logs = await _logControl.GetLatestLogsByUserAndListType(userId, listType);
 
             return logs == null || !logs.Any()
                 ? NoContent()

@@ -47,6 +47,45 @@ namespace Book_REST_Service.Controllers
                     user.LastName
                 }
             });
+
+
         }
+
+        [HttpPost("register")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Register([FromBody] RegisterRequestDto dto)
+        {
+            if (dto == null)
+                return BadRequest("Ugyldigt payload");
+
+            if (string.IsNullOrWhiteSpace(dto.Email))
+                return BadRequest("Email mangler");
+
+            // Tjek om bruger findes
+            var existingUser = await _userControl.GetByEmail(dto.Email);
+            if (existingUser != null)
+                return Conflict("Bruger findes allerede");
+
+            var user = new User
+            {
+                UserId = Guid.NewGuid().ToString(),
+                Email = dto.Email.Trim(),
+                FirstName = dto.FirstName.Trim(),
+                LastName = dto.LastName.Trim()
+            };
+
+            var created = await _userControl.Create(user);
+            if (!created)
+                return StatusCode(500, "Kunne ikke oprette bruger");
+
+            return Created("", new
+            {
+                user.UserId,
+                user.Email,
+                user.FirstName,
+                user.LastName
+            });
+        }
+
     }
 }

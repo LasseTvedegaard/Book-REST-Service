@@ -15,102 +15,91 @@ namespace BusinessLogic
             _bookAccess = bookAccess;
         }
 
+        // -----------------------------
+        // CREATE
+        // -----------------------------
         public async Task<int> Create(BookInDto entity)
         {
-            int createdId = -1;
+            if (entity == null)
+                return -1;
 
-            if (entity != null)
-            {
-                Book? internBook = BookDtoConvert.FromDtoToBook(entity);
-                if (internBook != null)
-                {
-                    createdId = await _bookAccess.Create(internBook);
-                }
-            }
-            return createdId;
+            Book? book = BookDtoConvert.FromDtoToBook(entity);
+            if (book == null)
+                return -1;
+
+            return await _bookAccess.Create(book);
         }
 
+        // -----------------------------
+        // GET BY ID
+        // -----------------------------
         public async Task<BookOutDto?> Get(int id)
         {
-            BookOutDto? foundDto = null;
+            if (id <= 0)
+                return null;
 
-            if (id > 0)
-            {
-                Book? foundBook = await _bookAccess.Get(id);
-                if (foundBook != null)
-                {
-                    foundDto = BookDtoConvert.FromBookToDto(foundBook);
-                }
-            }
-            return foundDto;
+            Book? book = await _bookAccess.Get(id);
+            if (book == null)
+                return null;
+
+            return BookDtoConvert.FromBookToDto(book);
         }
 
+        // -----------------------------
+        // GET ALL / FILTER BY STATUS
+        // -----------------------------
         public async Task<List<BookOutDto>?> GetAll(string? status = null)
         {
-            List<BookOutDto>? foundDtos = null;
-            List<Book> foundBooks;
+            List<Book> books = !string.IsNullOrWhiteSpace(status)
+                ? await _bookAccess.GetByStatus(status)
+                : await _bookAccess.GetAll();
 
-            if (!string.IsNullOrEmpty(status))
-            {
-                foundBooks = await _bookAccess.GetByStatus(status);  // Fetch books filtered by status
-            } else
-            {
-                foundBooks = await _bookAccess.GetAll();  // Fetch all books
-            }
+            if (books == null)
+                return null;
 
-            if (foundBooks != null)
-            {
-                foundDtos = BookDtoConvert.FromBookDtoToList(foundBooks);
-            }
-
-            return foundDtos;
+            return BookDtoConvert.FromBookDtoToList(books);
         }
 
+        // -----------------------------
+        // FULL UPDATE (EDIT BOOK)
+        // -----------------------------
         public async Task<bool> Update(int id, BookInDto entity)
         {
-            bool isUpdated = false;
+            if (id <= 0 || entity == null)
+                return false;
 
-            if (entity != null)
-            {
-                Book? bookToUpdate = BookDtoConvert.FromDtoToBook(entity);
-                if (bookToUpdate != null)
-                {
-                    isUpdated = await _bookAccess.Update(id, bookToUpdate);
-                }
-            }
-            return isUpdated;
+            Book? bookToUpdate = BookDtoConvert.FromDtoToBook(entity);
+            if (bookToUpdate == null)
+                return false;
+
+            return await _bookAccess.Update(id, bookToUpdate);
         }
 
+        // -----------------------------
+        // GET BY STATUS (optional helper)
+        // -----------------------------
         public async Task<List<BookOutDto>?> GetByStatus(string status)
         {
-            List<BookOutDto>? foundDtos = null;
+            if (string.IsNullOrWhiteSpace(status))
+                return null;
 
-            List<Book> foundBooks = await _bookAccess.GetByStatus(status);
+            List<Book> books = await _bookAccess.GetByStatus(status);
+            if (books == null)
+                return null;
 
-            if (foundBooks != null)
-            {
-                foundDtos = BookDtoConvert.FromBookDtoToList(foundBooks);
-            }
-
-            return foundDtos;
+            return BookDtoConvert.FromBookDtoToList(books);
         }
 
+        // -----------------------------
+        // STATUS UPDATE (ROBUST)
+        // -----------------------------
         public async Task<bool> UpdateStatus(int id, string status)
         {
-            if (string.IsNullOrWhiteSpace(status))
+            if (id <= 0 || string.IsNullOrWhiteSpace(status))
                 return false;
 
-            // Hent den eksisterende bog
-            var existingBook = await _bookAccess.Get(id);
-            if (existingBook == null)
-                return false;
-
-            // Opdater status
-            existingBook.Status = status;
-
-            // Gem opdateringen
-            return await _bookAccess.Update(id, existingBook);
+            // Brug specialiseret DAL-metode
+            return await _bookAccess.UpdateStatus(id, status.Trim());
         }
-
     }
 }

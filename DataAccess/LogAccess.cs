@@ -40,52 +40,107 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // GET BY ID
+        // GET BY ID (MED BOOK)
         // -----------------------------
-        public async Task<Log> GetLogById(int logId, string listType)
+        public async Task<Log?> GetLogById(int logId, string listType)
         {
             const string sql = @"
-                SELECT *
-                FROM Log
-                WHERE logId = @logId
-                  AND listType = @listType";
+                SELECT 
+                    l.logId, l.bookId, l.userId, l.currentPage, l.noOfPages, l.listType, l.createdAt,
+
+                    b.bookId, 
+                    b.title, 
+                    b.author, 
+                    b.noOfPages, 
+                    b.bookType, 
+                    b.isbnNo, 
+                    b.status, 
+                    b.imageURL, 
+                    b.userId
+
+                FROM Log l
+                INNER JOIN Book b ON b.bookId = l.bookId
+                WHERE l.logId = @logId
+                  AND l.listType = @listType;";
 
             using var db = _connection.GetConnection();
 
-            return await db.QuerySingleOrDefaultAsync<Log>(
+            var result = await db.QueryAsync<Log, Book, Log>(
                 sql,
-                new { logId, listType }
+                (log, book) =>
+                {
+                    log.Book = book;
+                    return log;
+                },
+                new { logId, listType },
+                splitOn: "bookId"
             );
+
+            return result.FirstOrDefault();
         }
 
         // -----------------------------
-        // GET LOGS BY USER + LIST TYPE
+        // GET LOGS BY USER + LIST TYPE (MED BOOK)
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLogsByUser(string userId, string listType)
         {
             const string sql = @"
-                SELECT *
-                FROM Log
-                WHERE userId = @userId
-                  AND listType = @listType
-                ORDER BY createdAt DESC";
+                SELECT 
+                    l.logId, l.bookId, l.userId, l.currentPage, l.noOfPages, l.listType, l.createdAt,
+
+                    b.bookId, 
+                    b.title, 
+                    b.author, 
+                    b.noOfPages, 
+                    b.bookType, 
+                    b.isbnNo, 
+                    b.status, 
+                    b.imageURL, 
+                    b.userId
+
+                FROM Log l
+                INNER JOIN Book b ON b.bookId = l.bookId
+                WHERE l.userId = @userId
+                  AND l.listType = @listType
+                ORDER BY l.createdAt DESC;";
 
             using var db = _connection.GetConnection();
 
-            return await db.QueryAsync<Log>(
+            var result = await db.QueryAsync<Log, Book, Log>(
                 sql,
-                new { userId, listType }
+                (log, book) =>
+                {
+                    log.Book = book;
+                    return log;
+                },
+                new { userId, listType },
+                splitOn: "bookId"
             );
+
+            return result;
         }
 
         // -----------------------------
-        // GET LATEST LOG PER BOOK
+        // GET LATEST LOG PER BOOK (MED BOOK)  ⭐ DEN KRITISKE TIL DASHBOARD
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(string userId, string listType)
         {
             const string sql = @"
-                SELECT *
+                SELECT 
+                    l.logId, l.bookId, l.userId, l.currentPage, l.noOfPages, l.listType, l.createdAt,
+
+                    b.bookId, 
+                    b.title, 
+                    b.author, 
+                    b.noOfPages, 
+                    b.bookType, 
+                    b.isbnNo, 
+                    b.status, 
+                    b.imageURL, 
+                    b.userId
+
                 FROM Log l
+                INNER JOIN Book b ON b.bookId = l.bookId
                 WHERE l.userId = @userId
                   AND l.listType = @listType
                   AND l.logId IN (
@@ -95,35 +150,62 @@ namespace DataAccess
                         AND listType = @listType
                       GROUP BY bookId
                   )
-                ORDER BY l.createdAt DESC";
+                ORDER BY l.createdAt DESC;";
 
             using var db = _connection.GetConnection();
 
-            return await db.QueryAsync<Log>(
+            var result = await db.QueryAsync<Log, Book, Log>(
                 sql,
-                new { userId, listType }
+                (log, book) =>
+                {
+                    log.Book = book;
+                    return log;
+                },
+                new { userId, listType },
+                splitOn: "bookId"
             );
+
+            return result;
         }
 
         // -----------------------------
-        // GET FULL HISTORY (USER)
+        // GET FULL HISTORY (MED BOOK)
         // -----------------------------
         public async Task<List<Log>> GetAllLogs(string userId)
         {
             const string sql = @"
-                SELECT *
-                FROM Log
-                WHERE userId = @userId
-                ORDER BY createdAt DESC";
+                SELECT 
+                    l.logId, l.bookId, l.userId, l.currentPage, l.noOfPages, l.listType, l.createdAt,
+
+                    b.bookId, 
+                    b.title, 
+                    b.author, 
+                    b.noOfPages, 
+                    b.bookType, 
+                    b.isbnNo, 
+                    b.status, 
+                    b.imageURL, 
+                    b.userId
+
+                FROM Log l
+                INNER JOIN Book b ON b.bookId = l.bookId
+                WHERE l.userId = @userId
+                ORDER BY l.createdAt DESC;";
 
             using var db = _connection.GetConnection();
 
-            var logs = await db.QueryAsync<Log>(
+            var result = await db.QueryAsync<Log, Book, Log>(
                 sql,
-                new { userId }
+                (log, book) =>
+                {
+                    log.Book = book;
+                    return log;
+                },
+                new { userId },
+                splitOn: "bookId"
             );
 
-            return logs.ToList();
+            return result.ToList();
         }
     }
 }

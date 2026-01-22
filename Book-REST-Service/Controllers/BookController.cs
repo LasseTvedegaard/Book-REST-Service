@@ -2,11 +2,13 @@
 using DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Book_REST_Service.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]   // 🔒 ALT i denne controller kræver login
     public class BookController : ControllerBase
     {
         private readonly IBookControl _bookControl;
@@ -18,59 +20,58 @@ namespace Book_REST_Service.Controllers
             _logger = logger;
         }
 
-        // GET: api/<BooksController>
+        // -----------------------------
+        // GET ALL (USER-SCOPED)
+        // -----------------------------
         [HttpGet]
-        [AllowAnonymous] // Offentlig adgang
-        public async Task<ActionResult<List<BookOutDto>>> GetAll([FromQuery] string? status)  // Tilføjet query parameter til status
+        public async Task<ActionResult<List<BookOutDto>>> GetAll([FromQuery] string? status)
         {
-            ActionResult<List<BookOutDto>> foundReturn;
-            List<BookOutDto>? foundDtos = await _bookControl.GetAll(status);  // Videregiv status til BookControl
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (foundDtos != null)
-            {
-                foundReturn = Ok(foundDtos);
-            } else
-            {
-                foundDtos = new List<BookOutDto>();
-                foundReturn = Ok(foundDtos.ToList());
-            }
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
 
-            return foundReturn;
+            var books = await _bookControl.GetAll(userId, status);
+
+            return Ok(books);
         }
 
-        // GET api/<BooksController>/5
+        // -----------------------------
+        // GET BY ID (USER-SCOPED)
+        // -----------------------------
         [HttpGet("{id}")]
-        [AllowAnonymous] // Offentlig adgang
         public async Task<ActionResult<BookOutDto>> Get(int id)
         {
-            ActionResult<BookOutDto> foundReturn;
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            BookOutDto? foundBookDto = await _bookControl.Get(id);
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
 
-            if (foundBookDto != null)
-            {
-                foundReturn = Ok(foundBookDto);
-            } else
-            {
-                foundReturn = new StatusCodeResult(204);
-            }
-            return foundReturn;
+            var book = await _bookControl.Get(id, userId);
+
+            if (book == null)
+                return NotFound();
+
+            return Ok(book);
         }
 
+        // -----------------------------
+        // CREATE (USER-SCOPED)
+        // -----------------------------
         [HttpPost]
-        [Authorize] // Kun for loggede brugere
         public async Task<ActionResult<BookOutDto>> CreateBook([FromBody] BookInDto bookToCreate)
         {
             if (bookToCreate == null)
-            {
-                _logger.LogWarning("Attempted to create a book with null data.");
                 return BadRequest("Invalid book data.");
-            }
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
 
             try
             {
-                _logger.LogInformation("Creating a new book with title: {Title}", bookToCreate.Title);
-
+                // Trim input
                 bookToCreate.Title = bookToCreate.Title?.Trim();
                 bookToCreate.Author = bookToCreate.Author?.Trim();
                 bookToCreate.BookType = bookToCreate.BookType?.Trim();
@@ -78,101 +79,78 @@ namespace Book_REST_Service.Controllers
                 bookToCreate.Status = bookToCreate.Status?.Trim();
                 bookToCreate.ImageURL = bookToCreate.ImageURL?.Trim();
 
-                int insertedId = await _bookControl.Create(bookToCreate);
+                var insertedId = await _bookControl.Create(bookToCreate, userId);
 
-                if (insertedId > 0)
-                {
-                    _logger.LogInformation("Successfully inserted book with ID: {BookId}", insertedId);
-
-                    BookOutDto? insertedBook = await _bookControl.Get(insertedId);
-
-                    if (insertedBook != null)
-                    {
-                        _logger.LogInformation("Retrieved inserted book with ID: {BookId}", insertedId);
-                        return CreatedAtAction(nameof(GetAll), new { id = insertedId }, insertedBook);
-                    } else
-                    {
-                        _logger.LogError("Failed to retrieve the inserted book with ID: {BookId}", insertedId);
-                        return StatusCode(500, "Failed to retrieve the inserted book.");
-                    }
-                } else
-                {
-                    _logger.LogError("Failed to insert the book with title: {Title}", bookToCreate.Title);
+                if (insertedId <= 0)
                     return StatusCode(500, "Failed to insert the book.");
-                }
+
+                var insertedBook = await _bookControl.Get(insertedId, userId);
+
+                if (insertedBook == null)
+                    return StatusCode(500, "Failed to retrieve the inserted book.");
+
+                return CreatedAtAction(nameof(Get), new { id = insertedId }, insertedBook);
             } catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occurred while creating the book with title: {Title}", bookToCreate.Title);
-                return StatusCode(500, "An internal server error occurred.");
-            }
-        }
-
-        // PUT api/<BooksController>/5
-        [HttpPut("{id}")]
-        [Authorize] // Kun for loggede brugere
-        public async Task<ActionResult<BookOutDto>> UpdateBook(int id, [FromBody] BookInDto bookToUpdate)
-        {
-            if (bookToUpdate == null || id <= 0)
-            {
-                // Hvis ingen data modtages eller id er ugyldigt, returner BadRequest
-                return BadRequest("Invalid book data or book ID.");
-            }
-
-            try
-            {
-                // Opdaterer bogen gennem BookControl
-                bool isUpdated = await _bookControl.Update(id, bookToUpdate);
-
-                if (isUpdated)
-                {
-                    // Find den opdaterede bog og returner den som BookOutDto
-                    BookOutDto updatedBook = await _bookControl.Get(id);
-                    return Ok(updatedBook);
-                } else
-                {
-                    // Hvis opdatering ikke lykkes, returner en fejlstatus
-                    return StatusCode(500, "Failed to update the book.");
-                }
-            } catch (Exception ex)
-            {
-                // Håndter fejl og log dem
-                _logger?.LogError(ex, "An error occurred while updating the book with ID: {Id}", id);
+                _logger?.LogError(ex, "Error creating book");
                 return StatusCode(500, "Internal server error.");
             }
         }
 
-        [HttpPatch("status/{id}")]
-        [Authorize]
-        public async Task<IActionResult> UpdateBookStatus(int id, [FromBody] string status)
+        // -----------------------------
+        // FULL UPDATE (USER-SCOPED)
+        // -----------------------------
+        [HttpPut("{id}")]
+        public async Task<ActionResult<BookOutDto>> UpdateBook(int id, [FromBody] BookInDto bookToUpdate)
         {
-            if (string.IsNullOrWhiteSpace(status))
+            if (bookToUpdate == null || id <= 0)
+                return BadRequest("Invalid book data or book ID.");
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            try
             {
-                return BadRequest("Status cannot be empty.");
+                var isUpdated = await _bookControl.Update(id, bookToUpdate, userId);
+
+                if (!isUpdated)
+                    return NotFound();   // Enten findes bogen ikke, eller den tilhører ikke user
+
+                var updatedBook = await _bookControl.Get(id, userId);
+
+                if (updatedBook == null)
+                    return NotFound();
+
+                return Ok(updatedBook);
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error updating book with ID {Id}", id);
+                return StatusCode(500, "Internal server error.");
             }
-
-            var success = await _bookControl.UpdateStatus(id, status);
-
-            if (success) return Ok();
-            return StatusCode(500, "Failed to update book status.");
         }
 
+        // -----------------------------
+        // UPDATE STATUS (USER-SCOPED)
+        // -----------------------------
         [HttpPut("{id}/status")]
-        [Authorize]
-        public async Task<IActionResult> UpdateBookStatus(
-    int id,
-    [FromBody] UpdateBookStatusDto dto)
+        public async Task<IActionResult> UpdateBookStatus(int id, [FromBody] UpdateBookStatusDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.Status))
                 return BadRequest("Status cannot be empty.");
 
-            var success = await _bookControl.UpdateStatus(id, dto.Status.Trim());
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Unauthorized();
+
+            var success = await _bookControl.UpdateStatus(id, dto.Status.Trim(), userId);
 
             if (success)
-                return NoContent(); // 204 – korrekt til update
+                return NoContent(); // 204
 
-            return StatusCode(500, "Failed to update book status.");
+            return NotFound(); // Enten findes bogen ikke, eller den tilhører ikke user
         }
-
-
     }
 }

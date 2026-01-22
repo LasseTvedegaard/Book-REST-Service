@@ -15,6 +15,7 @@ namespace Model {
         public Location? Location { get; set; }  // Optional Location where the book can be found
         public string Status { get; set; }  // Status of the book (e.g., read, unread)
         public string ImageURL { get; set; }  // URL for the book's cover image
+        public string UserId { get; set; }
 
         // Default constructor
         public Book() { }

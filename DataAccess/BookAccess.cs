@@ -4,7 +4,6 @@ using DataAccess.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Model;
-using System.Net;
 
 namespace DataAccess
 {
@@ -13,7 +12,10 @@ namespace DataAccess
         private IConnection _connectionString;
         private readonly ILogger<IBookAccess>? _logger;
 
-        public BookAccess(IGenericConnection<LibraryConnection> _pgConnection, IConfiguration configuration, ILogger<IBookAccess>? logger = null)
+        public BookAccess(
+            IGenericConnection<LibraryConnection> _pgConnection,
+            IConfiguration configuration,
+            ILogger<IBookAccess>? logger = null)
         {
             _connectionString = _pgConnection;
             _logger = logger;
@@ -25,67 +27,79 @@ namespace DataAccess
             // Brug evt. mock IConnection til tests
         }
 
+        // -------------------------
+        // CREATE
+        // -------------------------
         public async Task<int> Create(Book entity)
         {
             var insertedId = -1;
             using var db = _connectionString.GetConnection();
 
-            using (var transaction = db.BeginTransaction())
+            using var transaction = db.BeginTransaction();
+            try
             {
-                try
-                {
-                    // Insert to Book table
-                    var sqlBook = @"
-                        INSERT INTO Book
-                        (
-                            GenreId,
-                            LocationId,
-                            IsbnNo,
-                            Title,
-                            Author,
-                            NoOfPages,
-                            BookType,
-                            ImageUrl,
-                            Status)
-                        VALUES
-                        (
-                            @GenreId,
-                            @LocationId,
-                            @IsbnNo,
-                            @Title,
-                            @Author,
-                            @NoOfPages,
-                            @BookType,
-                            @ImageUrl,
-                            @Status);
-                        SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                var sqlBook = @"
+                    INSERT INTO Book
+                    (
+                        GenreId,
+                        LocationId,
+                        IsbnNo,
+                        Title,
+                        Author,
+                        NoOfPages,
+                        BookType,
+                        ImageUrl,
+                        Status,
+                        UserId
+                    )
+                    VALUES
+                    (
+                        @GenreId,
+                        @LocationId,
+                        @IsbnNo,
+                        @Title,
+                        @Author,
+                        @NoOfPages,
+                        @BookType,
+                        @ImageUrl,
+                        @Status,
+                        @UserId
+                    );
+                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
-                    insertedId = await db.ExecuteScalarAsync<int>(sqlBook, new
+                insertedId = await db.ExecuteScalarAsync<int>(
+                    sqlBook,
+                    new
                     {
-                        GenreId = entity.Genre.GenreId,
-                        LocationId = entity.Location.LocationId,
+                        GenreId = entity.Genre?.GenreId,
+                        LocationId = entity.Location?.LocationId,
                         entity.IsbnNo,
                         entity.Title,
                         entity.Author,
                         entity.NoOfPages,
                         entity.BookType,
                         ImageUrl = entity.ImageURL,
-                        entity.Status
-                    }, transaction);
+                        entity.Status,
+                        UserId = entity.UserId          // 🔒 Ejer sættes her
+                    },
+                    transaction
+                );
 
-                    transaction.Commit();
-                } catch (Exception ex)
-                {
-                    _logger?.LogError(ex.Message);
-                    transaction.Rollback();
-                    throw;
-                }
+                transaction.Commit();
+            } catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error creating book");
+                transaction.Rollback();
+                throw;
             }
 
             return insertedId;
         }
 
-        public async Task<Book>? Get(int id)
+        // -------------------------
+        // GET SINGLE (USER-SCOPED)
+        // -------------------------
+        public async Task<Book?> Get(int id, string userId)
         {
             using var db = _connectionString.GetConnection();
 
@@ -106,101 +120,112 @@ namespace DataAccess
                 FROM Book b
                 INNER JOIN Genre g ON b.GenreId = g.GenreId
                 LEFT JOIN Location l ON b.LocationId = l.LocationId
-                WHERE b.BookId = @bookId";
+                WHERE b.BookId = @bookId
+                  AND b.UserId = @userId";
 
             var result = await db.QueryAsync<Book, Genre, Location, Book>(
                 bookQuery,
-                (book, genre, location) => {
+                (book, genre, location) =>
+                {
                     book.Genre = genre;
                     book.Location = location;
                     return book;
                 },
-                new { bookId = id },
+                new { bookId = id, userId },   // 🔹 VIGTIG: begge parametre
                 splitOn: "GenreName,LocationName"
             );
 
             return result.FirstOrDefault();
         }
 
-        // This method queries and returns all books from the 'Book' database table.
-        public async Task<List<Book>> GetAll()
+        // -------------------------
+        // GET ALL FOR USER
+        // -------------------------
+        public async Task<List<Book>> GetAll(string userId)
         {
             using var db = _connectionString.GetConnection();
+            using var transaction = db.BeginTransaction();
 
-            using (var transaction = db.BeginTransaction())
-            {
-                var books = new List<Book>();
+            var bookQuery = @"
+                SELECT
+                    b.BookId, 
+                    b.IsbnNo,
+                    b.Title,
+                    b.Author,
+                    b.NoOfPages,
+                    b.BookType,
+                    b.ImageUrl,
+                    b.Status,              
+                    b.GenreId,
+                    g.GenreName,
+                    b.LocationId,               
+                    l.LocationName
+                FROM Book b
+                INNER JOIN Genre g ON b.GenreId = g.GenreId
+                LEFT JOIN Location l ON b.LocationId = l.LocationId 
+                WHERE b.UserId = @userId";
 
-                string bookQuery = @"
-                    SELECT
-                        b.BookId, 
-                        b.IsbnNo,
-                        b.Title,
-                        b.Author,
-                        b.NoOfPages,
-                        b.BookType,
-                        b.ImageUrl,
-                        b.Status,              
-                        b.GenreId,
-                        g.GenreName,
-                        b.LocationId,               
-                        l.LocationName
-                    FROM Book b
-                    INNER JOIN Genre g ON b.GenreId = g.GenreId
-                    LEFT JOIN Location l ON b.LocationId = l.LocationId";
+            var books = (await db.QueryAsync<Book, Genre, Location, Book>(
+                bookQuery,
+                (book, genre, location) =>
+                {
+                    book.Genre = genre;
+                    book.Location = location;
+                    return book;
+                },
+                new { userId },              // 🔹 VIGTIG
+                transaction: transaction,
+                splitOn: "GenreName,LocationName"
+            )).ToList();
 
-                books = (await db.QueryAsync<Book, Genre, Location, Book>(
-                    bookQuery,
-                    (book, genre, location) => {
-                        book.Genre = genre;
-                        book.Location = location;
-                        return book;
-                    },
-                    transaction: transaction,
-                    splitOn: "GenreName,LocationName"
-                )).ToList();
-
-                transaction.Commit();
-                return books;
-            }
+            transaction.Commit();
+            return books;
         }
 
-        public async Task<bool> Update(int id, Book entity)
+        // -------------------------
+        // UPDATE (USER-SCOPED)
+        // -------------------------
+        public async Task<bool> Update(int id, Book entity, string userId)
         {
-            int rowsAffected = -1;
             entity.BookId = id;
 
             using var db = _connectionString.GetConnection();
+
             var updateSql = @"
-                UPDATE Book 
-                SET 
-                    IsbnNo = @IsbnNo, 
-                    Title = @Title, 
-                    Author = @Author,
-                    NoOfPages = @NoOfPages,
-                    BookType = @BookType,
-                    ImageUrl = @ImageUrl,
-                    Status = @Status, 
-                    GenreId = @GenreId,
-                    LocationId = @LocationId
-                WHERE 
-                    BookId = @BookId";
+        UPDATE Book 
+        SET 
+            IsbnNo = @IsbnNo, 
+            Title = @Title, 
+            Author = @Author,
+            NoOfPages = @NoOfPages,
+            BookType = @BookType,
+            ImageUrl = @ImageUrl,
+            Status = @Status, 
+            GenreId = @GenreId,
+            LocationId = @LocationId
+        WHERE 
+            BookId = @BookId
+        AND UserId = @UserId";   // 🔒 Kun ejer må opdatere
 
             try
             {
-                rowsAffected = await db.ExecuteAsync(updateSql, new
-                {
-                    entity.IsbnNo,
-                    entity.Title,
-                    entity.Author,
-                    entity.NoOfPages,
-                    entity.BookType,
-                    ImageUrl = entity.ImageURL,
-                    entity.Status,
-                    GenreId = (entity.Genre?.GenreId > 0) ? (int?)entity.Genre.GenreId : null,
-                    LocationId = (entity.Location?.LocationId > 0) ? (int?)entity.Location.LocationId : null,
-                    BookId = entity.BookId
-                });
+                var rowsAffected = await db.ExecuteAsync(
+                    updateSql,
+                    new
+                    {
+                        entity.IsbnNo,
+                        entity.Title,
+                        entity.Author,
+                        entity.NoOfPages,
+                        entity.BookType,
+                        ImageUrl = entity.ImageURL,
+                        entity.Status,
+                        GenreId = (entity.Genre?.GenreId > 0) ? (int?)entity.Genre.GenreId : null,
+                        LocationId = (entity.Location?.LocationId > 0) ? (int?)entity.Location.LocationId : null,
+                        BookId = entity.BookId,
+                        UserId = userId              // 🔹 BRUG PARAMETER, ikke entity.UserId
+                    }
+                );
 
                 if (rowsAffected > 0)
                 {
@@ -209,21 +234,25 @@ namespace DataAccess
                 {
                     _logger?.LogWarning("No rows affected when updating book with ID {BookId}", entity.BookId);
                 }
+
+                return rowsAffected > 0;
             } catch (Exception ex)
             {
                 _logger?.LogError(ex, "Error updating book with ID {BookId}", entity.BookId);
-                rowsAffected = 0;
+                return false;
             }
-
-            return rowsAffected > 0;
         }
 
-        public async Task<List<Book>> GetByStatus(string status)
+
+        // -------------------------
+        // GET BY STATUS (USER-SCOPED)
+        // -------------------------
+        public async Task<List<Book>> GetByStatus(string status, string userId)
         {
             using var db = _connectionString.GetConnection();
             using var transaction = db.BeginTransaction();
 
-            string sql = @"
+            var sql = @"
                 SELECT
                     b.BookId, 
                     b.IsbnNo,
@@ -240,16 +269,18 @@ namespace DataAccess
                 FROM Book b
                 INNER JOIN Genre g ON b.GenreId = g.GenreId
                 LEFT JOIN Location l ON b.LocationId = l.LocationId
-                WHERE LOWER(b.Status) = LOWER(@status)";
+                WHERE LOWER(b.Status) = LOWER(@status)
+                  AND b.UserId = @userId";
 
             var books = (await db.QueryAsync<Book, Genre, Location, Book>(
                 sql,
-                (book, genre, location) => {
+                (book, genre, location) =>
+                {
                     book.Genre = genre;
                     book.Location = location;
                     return book;
                 },
-                new { status },
+                new { status, userId },     // 🔹 VIGTIG
                 transaction: transaction,
                 splitOn: "GenreName,LocationName"
             )).ToList();
@@ -258,13 +289,23 @@ namespace DataAccess
             return books;
         }
 
-        public async Task<bool> UpdateStatus(int bookId, string status)
+        // -------------------------
+        // UPDATE STATUS (USER-SCOPED)
+        // -------------------------
+        public async Task<bool> UpdateStatus(int bookId, string status, string userId)
         {
             using var db = _connectionString.GetConnection();
 
-            string sql = @"UPDATE Book SET Status = @status WHERE BookId = @bookId";
+            var sql = @"
+                UPDATE Book 
+                SET Status = @status 
+                WHERE BookId = @bookId
+                  AND UserId = @userId";   // 🔒 Kun ejer må opdatere
 
-            var rowsAffected = await db.ExecuteAsync(sql, new { status, bookId });
+            var rowsAffected = await db.ExecuteAsync(
+                sql,
+                new { status, bookId, userId }   // 🔹 VIGTIG
+            );
 
             return rowsAffected > 0;
         }

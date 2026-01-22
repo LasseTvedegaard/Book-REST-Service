@@ -18,27 +18,30 @@ namespace BusinessLogic
         // -----------------------------
         // CREATE
         // -----------------------------
-        public async Task<int> Create(BookInDto entity)
+        public async Task<int> Create(BookInDto entity, string userId)
         {
-            if (entity == null)
+            if (entity == null || string.IsNullOrWhiteSpace(userId))
                 return -1;
 
             Book? book = BookDtoConvert.FromDtoToBook(entity);
             if (book == null)
                 return -1;
 
+            // 🔒 Sæt ejer eksplicit her
+            book.UserId = userId;
+
             return await _bookAccess.Create(book);
         }
 
         // -----------------------------
-        // GET BY ID
+        // GET BY ID (USER-SCOPED)
         // -----------------------------
-        public async Task<BookOutDto?> Get(int id)
+        public async Task<BookOutDto?> Get(int id, string userId)
         {
-            if (id <= 0)
+            if (id <= 0 || string.IsNullOrWhiteSpace(userId))
                 return null;
 
-            Book? book = await _bookAccess.Get(id);
+            Book? book = await _bookAccess.Get(id, userId);
             if (book == null)
                 return null;
 
@@ -46,60 +49,60 @@ namespace BusinessLogic
         }
 
         // -----------------------------
-        // GET ALL / FILTER BY STATUS
+        // GET ALL / FILTER BY STATUS (USER-SCOPED)
         // -----------------------------
-        public async Task<List<BookOutDto>?> GetAll(string? status = null)
+        public async Task<List<BookOutDto>> GetAll(string userId, string? status = null)
         {
-            List<Book> books = !string.IsNullOrWhiteSpace(status)
-                ? await _bookAccess.GetByStatus(status)
-                : await _bookAccess.GetAll();
+            if (string.IsNullOrWhiteSpace(userId))
+                return new List<BookOutDto>();
 
-            if (books == null)
-                return null;
+            List<Book> books = !string.IsNullOrWhiteSpace(status)
+                ? await _bookAccess.GetByStatus(status, userId)
+                : await _bookAccess.GetAll(userId);
 
             return BookDtoConvert.FromBookDtoToList(books);
         }
 
         // -----------------------------
-        // FULL UPDATE (EDIT BOOK)
+        // FULL UPDATE (USER-SCOPED)
         // -----------------------------
-        public async Task<bool> Update(int id, BookInDto entity)
+        public async Task<bool> Update(int id, BookInDto entity, string userId)
         {
-            if (id <= 0 || entity == null)
+            if (id <= 0 || entity == null || string.IsNullOrWhiteSpace(userId))
                 return false;
 
             Book? bookToUpdate = BookDtoConvert.FromDtoToBook(entity);
             if (bookToUpdate == null)
                 return false;
 
-            return await _bookAccess.Update(id, bookToUpdate);
+            // 🔒 Ejer må aldrig komme fra client – sæt den her
+            bookToUpdate.UserId = userId;
+
+            return await _bookAccess.Update(id, bookToUpdate, userId);
         }
 
         // -----------------------------
-        // GET BY STATUS (optional helper)
+        // GET BY STATUS (USER-SCOPED)
         // -----------------------------
-        public async Task<List<BookOutDto>?> GetByStatus(string status)
+        public async Task<List<BookOutDto>> GetByStatus(string status, string userId)
         {
-            if (string.IsNullOrWhiteSpace(status))
-                return null;
+            if (string.IsNullOrWhiteSpace(status) || string.IsNullOrWhiteSpace(userId))
+                return new List<BookOutDto>();
 
-            List<Book> books = await _bookAccess.GetByStatus(status);
-            if (books == null)
-                return null;
+            List<Book> books = await _bookAccess.GetByStatus(status, userId);
 
             return BookDtoConvert.FromBookDtoToList(books);
         }
 
         // -----------------------------
-        // STATUS UPDATE (ROBUST)
+        // STATUS UPDATE (USER-SCOPED)
         // -----------------------------
-        public async Task<bool> UpdateStatus(int id, string status)
+        public async Task<bool> UpdateStatus(int id, string status, string userId)
         {
-            if (id <= 0 || string.IsNullOrWhiteSpace(status))
+            if (id <= 0 || string.IsNullOrWhiteSpace(status) || string.IsNullOrWhiteSpace(userId))
                 return false;
 
-            // Brug specialiseret DAL-metode
-            return await _bookAccess.UpdateStatus(id, status.Trim());
+            return await _bookAccess.UpdateStatus(id, status.Trim(), userId);
         }
     }
 }

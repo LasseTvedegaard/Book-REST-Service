@@ -94,12 +94,8 @@ builder.Services.AddCors(options =>
                 "https://www.bookbuddy.website",
                 "http://localhost:3000"
             )
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-
-        // Hvis du PÅ ET TIDSPUNKT bruger cookies/sessions, skal du også:
-        // policy.AllowCredentials();
-        // (MEN så må du IKKE bruge AllowAnyOrigin)
+            .WithHeaders("content-type", "authorization")
+            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
     });
 });
 
@@ -175,8 +171,19 @@ var app = builder.Build();
 
 app.UseSerilogRequestLogging();
 
-// Debug-bevis: gør det nemt at se at DU har deployet rigtigt
-// (kan fjernes senere)
+// 🔴 VIGTIGT: Global preflight-fix til CORS
+app.Use(async (context, next) =>
+{
+    if (context.Request.Method == HttpMethods.Options)
+    {
+        context.Response.StatusCode = 200;
+        return;
+    }
+
+    await next();
+});
+
+// Debug-header (kan fjernes senere)
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-BookBuddy-Deploy"] = "bookbuddy-api-windows";
@@ -187,7 +194,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-// CORS skal ligge her (efter routing, før auth)
+// CORS SKAL ligge her
 app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();
@@ -195,7 +202,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Swagger til sidst er også ok; men her fungerer den fint
+// Swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 

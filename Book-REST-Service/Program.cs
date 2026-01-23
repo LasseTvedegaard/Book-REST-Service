@@ -15,13 +15,17 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// .env KUN lokalt
+// -----------------------------
+// .env (kun lokalt)
+// -----------------------------
 if (builder.Environment.IsDevelopment())
 {
     Env.Load();
 }
 
+// -----------------------------
 // Serilog
+// -----------------------------
 builder.Host.UseSerilog((context, config) =>
 {
     config.ReadFrom.Configuration(context.Configuration);
@@ -29,13 +33,14 @@ builder.Host.UseSerilog((context, config) =>
 
 var configuration = builder.Configuration;
 
+// -----------------------------
 // DB connection
+// -----------------------------
 var connectionString = ConnectionStringHelper.GetConnectionString(configuration);
 
 // -----------------------------
 // Dependency Injection
 // -----------------------------
-
 builder.Services.AddTransient<ICRUD<Employee>, EmployeeControl>();
 builder.Services.AddTransient<ICRUDAccess<Employee>, EmployeeAccess>();
 
@@ -59,9 +64,8 @@ builder.Services.AddTransient<ILogAccess, LogAccess>();
 
 builder.Services.AddScoped<JwtTokenService>();
 
-
 // DB (Dapper)
-builder.Services.AddScoped(provider => new LibraryConnection(connectionString));
+builder.Services.AddScoped(_ => new LibraryConnection(connectionString));
 builder.Services.AddScoped(
     typeof(IGenericConnection<LibraryConnection>),
     typeof(GenericConnection<LibraryConnection>)
@@ -79,29 +83,37 @@ builder.Services.AddControllers()
 // -----------------------------
 // CORS
 // -----------------------------
+const string CorsPolicyName = "CorsPolicy";
 
-builder.Services.AddCors(o =>
+builder.Services.AddCors(options =>
 {
-    o.AddPolicy("CorsPolicy", p =>
+    options.AddPolicy(CorsPolicyName, policy =>
     {
-        p.WithOrigins(
-            "https://bookbuddy.website",
-            "http://localhost:3000"
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader();
+        policy.WithOrigins(
+                "https://bookbuddy.website",
+                "https://www.bookbuddy.website",
+                "http://localhost:3000"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+
+        // Hvis du PÅ ET TIDSPUNKT bruger cookies/sessions, skal du også:
+        // policy.AllowCredentials();
+        // (MEN så må du IKKE bruge AllowAnyOrigin)
     });
 });
-
-
 
 // -----------------------------
 // JWT
 // -----------------------------
-
 var jwtKey = configuration["Jwt:Key"];
 var jwtIssuer = configuration["Jwt:Issuer"];
 var jwtAudience = configuration["Jwt:Audience"];
+
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new Exception("Jwt:Key mangler i configuration (Azure App Settings / appsettings).");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -114,16 +126,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = jwtIssuer,
             ValidAudience = jwtAudience,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtKey)
-            )
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
     });
 
 // -----------------------------
 // Swagger
 // -----------------------------
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -164,18 +173,30 @@ var app = builder.Build();
 // Middleware
 // -----------------------------
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
-app.UseHttpsRedirection();
 app.UseSerilogRequestLogging();
 
+// Debug-bevis: gør det nemt at se at DU har deployet rigtigt
+// (kan fjernes senere)
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-BookBuddy-Deploy"] = "bookbuddy-api-windows";
+    await next();
+});
+
+app.UseHttpsRedirection();
+
 app.UseRouting();
-app.UseCors("CorsPolicy");
+
+// CORS skal ligge her (efter routing, før auth)
+app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Swagger til sidst er også ok; men her fungerer den fint
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.Run();

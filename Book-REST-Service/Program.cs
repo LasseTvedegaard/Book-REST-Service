@@ -166,22 +166,10 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // -----------------------------
-// Middleware
+// Middleware (KORREKT rækkefølge)
 // -----------------------------
 
 app.UseSerilogRequestLogging();
-
-// 🔴 VIGTIGT: Global preflight-fix til CORS
-app.Use(async (context, next) =>
-{
-    if (context.Request.Method == HttpMethods.Options)
-    {
-        context.Response.StatusCode = 200;
-        return;
-    }
-
-    await next();
-});
 
 // Debug-header (kan fjernes senere)
 app.Use(async (context, next) =>
@@ -194,7 +182,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-// CORS SKAL ligge her
+// 🔴 CORS SKAL ligge her – før auth
 app.UseCors(CorsPolicyName);
 
 app.UseAuthentication();

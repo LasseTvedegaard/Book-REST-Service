@@ -89,15 +89,17 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicyName, policy =>
     {
-        policy.WithOrigins(
+        policy
+            .WithOrigins(
                 "https://bookbuddy.website",
                 "https://www.bookbuddy.website",
                 "http://localhost:3000"
             )
-            .WithHeaders("content-type", "authorization")
-            .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
+            .AllowAnyHeader()
+            .AllowAnyMethod();
     });
 });
+
 
 // -----------------------------
 // JWT

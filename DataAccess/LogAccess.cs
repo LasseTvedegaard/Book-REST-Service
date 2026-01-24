@@ -23,7 +23,7 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // CREATE
+        // Create log entry
         // -----------------------------
         public async Task<int> Create(Log entity)
         {
@@ -40,7 +40,7 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // GET BY ID (MED BOOK)
+        // Get by Id and book type
         // -----------------------------
         public async Task<Log?> GetLogById(int logId, string listType)
         {
@@ -80,7 +80,7 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // GET LOGS BY USER + LIST TYPE (MED BOOK)
+        // Get logs per user and listtype
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLogsByUser(string userId, string listType)
         {
@@ -121,7 +121,7 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // GET LATEST LOG PER BOOK (MED BOOK)  ⭐ DEN KRITISKE TIL DASHBOARD
+        // Get lastest log per book for user
         // -----------------------------
         public async Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(string userId, string listType)
         {
@@ -169,7 +169,7 @@ namespace DataAccess
         }
 
         // -----------------------------
-        // GET FULL HISTORY (MED BOOK)
+        // Get full reading logs for user
         // -----------------------------
         public async Task<List<Log>> GetAllLogs(string userId)
         {
@@ -208,6 +208,9 @@ namespace DataAccess
             return result.ToList();
         }
 
+        // -----------------------------
+        // Update Reading Progress
+        // -----------------------------
         public Task<bool> Update(Log log, string listType)
         {
             using var db = _connection.GetConnection();

@@ -13,5 +13,7 @@ namespace DataAccess.Interfaces
         Task<IEnumerable<Log>> GetLatestLogsByUserAndListType(string userId, string listType);
 
         Task<List<Log>> GetAllLogs(string userId);
+
+        Task<bool> Update(Log log, string listType);
     }
 }

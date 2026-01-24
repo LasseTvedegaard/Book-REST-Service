@@ -207,5 +207,29 @@ namespace DataAccess
 
             return result.ToList();
         }
+
+        public Task<bool> Update(Log log, string listType)
+        {
+            using var db = _connection.GetConnection();
+
+            var sql = @"
+                UPDATE Log
+                SET currentPage = @CurrentPage,
+                    noOfPages = @NoOfPages
+                WHERE logId = @LogId 
+                  AND userId = @UserId
+                  AND listType = @ListType;";
+
+            var rowsAffected = db.Execute(sql, new
+            {
+                log.CurrentPage,
+                log.NoOfPages,
+                log.LogId,
+                log.UserId,
+                ListType = listType
+            });
+
+            return Task.FromResult(rowsAffected > 0);
+        }
     }
 }

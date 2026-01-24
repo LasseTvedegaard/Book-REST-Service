@@ -38,5 +38,11 @@ namespace BusinessLogic
         {
             return await _logAccess.GetAllLogs(userId);
         }
+
+        public Task<bool> Update(Log log, string listType)
+        {
+            return _logAccess.Update(log, listType);
+        }
+
     }
 }

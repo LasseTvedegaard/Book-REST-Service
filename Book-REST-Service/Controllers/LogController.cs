@@ -32,13 +32,13 @@ namespace Book_REST_Service.Controllers
 
             try
             {
-                // 🔑 Guid → string (ENESTE STED)
+                // Guid → string (ENESTE STED)
                 var userId = User.GetUserId().ToString();
 
                 var log = new Log
                 {
                     BookId = logDto.BookId,
-                    UserId = userId, // ✅ string
+                    UserId = userId, // string
                     CurrentPage = logDto.CurrentPage,
                     NoOfPages = logDto.NoOfPages,
                     ListType = logDto.ListType
@@ -128,5 +128,39 @@ namespace Book_REST_Service.Controllers
                 return StatusCode(500, "Failed to fetch log history");
             }
         }
+
+        // -----------------------------
+        // UPDATE LOG BY ID
+        // -----------------------------
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateLog(int id, [FromBody] LogCreateDto logDto)
+        {
+            if (logDto == null)
+                return BadRequest();
+
+            try
+            {
+                var userId = User.GetUserId().ToString();
+
+                var log = new Log
+                {
+                    LogId = id,
+                    BookId = logDto.BookId,
+                    UserId = userId,
+                    CurrentPage = logDto.CurrentPage,
+                    NoOfPages = logDto.NoOfPages,
+                    ListType = logDto.ListType
+                };
+
+                var result = await _logControl.Update(log, logDto.ListType);
+
+                return result ? NoContent() : NotFound();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized();
+            }
+        }
+
     }
 }

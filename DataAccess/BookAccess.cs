@@ -280,7 +280,7 @@ namespace DataAccess
                     book.Location = location;
                     return book;
                 },
-                new { status, userId },     // 🔹 VIGTIG
+                new { status, userId },     
                 transaction: transaction,
                 splitOn: "GenreName,LocationName"
             )).ToList();
@@ -300,11 +300,11 @@ namespace DataAccess
                 UPDATE Book 
                 SET Status = @status 
                 WHERE BookId = @bookId
-                  AND UserId = @userId";   // 🔒 Kun ejer må opdatere
+                  AND UserId = @userId";   
 
             var rowsAffected = await db.ExecuteAsync(
                 sql,
-                new { status, bookId, userId }   // 🔹 VIGTIG
+                new { status, bookId, userId }   
             );
 
             return rowsAffected > 0;
